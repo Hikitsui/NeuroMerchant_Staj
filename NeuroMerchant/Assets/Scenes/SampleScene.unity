@@ -337,7 +337,7 @@ Transform:
   m_GameObject: {fileID: 262373225}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -8.13, y: 0, z: 1.24}
+  m_LocalPosition: {x: -12.719999, y: 0, z: -1.04}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -428,11 +428,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cityName: City_B
   isProducer: 0
+  sovereignCity: {fileID: 0}
   marketItems:
   - itemData: {fileID: 11400000, guid: 517b3e3cbff13f949af5be860a8d9eef, type: 2}
     currentStock: 20
-    maxStock: 0
-    consumptionRate: 1
+    maxStock: 200
+    basePrice: 8
+    currentDynamicPrice: 0
+    dailyProduction: 15
+    dailyTax: 10
+  - itemData: {fileID: 11400000, guid: 8abcdd9c8feba2c40ba7bd02088fae73, type: 2}
+    currentStock: 0
+    maxStock: 200
+    basePrice: 6
+    currentDynamicPrice: 0
+    dailyProduction: 15
+    dailyTax: 10
+  - itemData: {fileID: 11400000, guid: 95111b808d909214ca91c4f53e4191fb, type: 2}
+    currentStock: 0
+    maxStock: 200
+    basePrice: 4
+    currentDynamicPrice: 0
+    dailyProduction: 15
+    dailyTax: 10
 --- !u!1 &266131459
 GameObject:
   m_ObjectHideFlags: 0
@@ -676,7 +694,7 @@ Transform:
   m_GameObject: {fileID: 360056953}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -2.18, y: 0, z: 3.7}
+  m_LocalPosition: {x: 0.96, y: 0, z: 3.44}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -694,9 +712,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 397b14e0caf46d840abb4340f6eade9c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  currentState: 0
+  targetCityName: 
   navAgent: {fileID: 0}
   currentMoney: 1000
-  carryCapacity: 10
+  maxCapacity: 20
+  carriedItemData: {fileID: 0}
+  carriedAmount: 0
+  knownSettlements: []
 --- !u!195 &360056956
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -707,7 +730,7 @@ NavMeshAgent:
   m_Enabled: 1
   m_AgentTypeID: 0
   m_Radius: 0.5
-  m_Speed: 3.5
+  m_Speed: 3
   m_Acceleration: 8
   avoidancePriority: 50
   m_AngularSpeed: 120
@@ -819,6 +842,52 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!1 &443342846
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 443342847}
+  - component: {fileID: 443342848}
+  m_Layer: 0
+  m_Name: TimeManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &443342847
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 443342846}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1339293427}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &443342848
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 443342846}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73508082deaafcf489a485ea9e2c3909, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  realSecondsPerGameDay: 10
+  currentDay: 1
 --- !u!1 &496497432
 GameObject:
   m_ObjectHideFlags: 0
@@ -1200,7 +1269,7 @@ Transform:
   m_GameObject: {fileID: 999066929}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 6.13, y: 0, z: 6.81}
+  m_LocalPosition: {x: 12.26, y: 0, z: 3.91}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1293,11 +1362,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cityName: Village_C
   isProducer: 1
+  sovereignCity: {fileID: 1343849827}
   marketItems:
   - itemData: {fileID: 11400000, guid: 95111b808d909214ca91c4f53e4191fb, type: 2}
-    currentStock: 30
-    maxStock: 100
-    consumptionRate: 2
+    currentStock: 20
+    maxStock: 50
+    basePrice: 3
+    currentDynamicPrice: 0
+    dailyProduction: 12
+    dailyTax: 10
 --- !u!1 &1111096119
 GameObject:
   m_ObjectHideFlags: 0
@@ -1399,6 +1472,38 @@ Transform:
   - {fileID: 360056954}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1339293426
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1339293427}
+  m_Layer: 0
+  m_Name: ---Managers---
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1339293427
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1339293426}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.23654342, y: -0.97070265, z: 1.7921653}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 443342847}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1343849822
 GameObject:
   m_ObjectHideFlags: 0
@@ -1428,7 +1533,7 @@ Transform:
   m_GameObject: {fileID: 1343849822}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 8.88, y: 0, z: 4.63}
+  m_LocalPosition: {x: 15.01, y: 0, z: 1.7300003}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1519,11 +1624,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cityName: City_C
   isProducer: 0
+  sovereignCity: {fileID: 0}
   marketItems:
   - itemData: {fileID: 11400000, guid: 95111b808d909214ca91c4f53e4191fb, type: 2}
     currentStock: 30
-    maxStock: 0
-    consumptionRate: 1
+    maxStock: 200
+    basePrice: 4
+    currentDynamicPrice: 0
+    dailyProduction: 15
+    dailyTax: 10
+  - itemData: {fileID: 11400000, guid: 517b3e3cbff13f949af5be860a8d9eef, type: 2}
+    currentStock: 0
+    maxStock: 200
+    basePrice: 8
+    currentDynamicPrice: 0
+    dailyProduction: 15
+    dailyTax: 10
+  - itemData: {fileID: 11400000, guid: 8abcdd9c8feba2c40ba7bd02088fae73, type: 2}
+    currentStock: 0
+    maxStock: 200
+    basePrice: 6
+    currentDynamicPrice: 0
+    dailyProduction: 15
+    dailyTax: 10
 --- !u!1 &1432209859
 GameObject:
   m_ObjectHideFlags: 0
@@ -1646,11 +1769,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cityName: Village_A
   isProducer: 1
+  sovereignCity: {fileID: 2031166988}
   marketItems:
   - itemData: {fileID: 11400000, guid: 8abcdd9c8feba2c40ba7bd02088fae73, type: 2}
-    currentStock: 50
-    maxStock: 100
-    consumptionRate: 2
+    currentStock: 20
+    maxStock: 50
+    basePrice: 5
+    currentDynamicPrice: 0
+    dailyProduction: 12
+    dailyTax: 10
 --- !u!1 &1461992470
 GameObject:
   m_ObjectHideFlags: 0
@@ -1680,7 +1807,7 @@ Transform:
   m_GameObject: {fileID: 1461992470}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -8.6, y: 0, z: 3.97}
+  m_LocalPosition: {x: -13.19, y: 0, z: 1.69}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1773,11 +1900,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cityName: Village_B
   isProducer: 1
+  sovereignCity: {fileID: 262373230}
   marketItems:
   - itemData: {fileID: 11400000, guid: 517b3e3cbff13f949af5be860a8d9eef, type: 2}
     currentStock: 20
-    maxStock: 100
-    consumptionRate: 2
+    maxStock: 50
+    basePrice: 7
+    currentDynamicPrice: 0
+    dailyProduction: 12
+    dailyTax: 10
 --- !u!1 &1578542427
 GameObject:
   m_ObjectHideFlags: 0
@@ -2270,11 +2401,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cityName: City_A
   isProducer: 0
+  sovereignCity: {fileID: 0}
   marketItems:
   - itemData: {fileID: 11400000, guid: 8abcdd9c8feba2c40ba7bd02088fae73, type: 2}
     currentStock: 50
-    maxStock: 0
-    consumptionRate: 1
+    maxStock: 200
+    basePrice: 6
+    currentDynamicPrice: 0
+    dailyProduction: 15
+    dailyTax: 10
+  - itemData: {fileID: 11400000, guid: 517b3e3cbff13f949af5be860a8d9eef, type: 2}
+    currentStock: 0
+    maxStock: 200
+    basePrice: 8
+    currentDynamicPrice: 0
+    dailyProduction: 15
+    dailyTax: 10
+  - itemData: {fileID: 11400000, guid: 95111b808d909214ca91c4f53e4191fb, type: 2}
+    currentStock: 0
+    maxStock: 200
+    basePrice: 4
+    currentDynamicPrice: 0
+    dailyProduction: 15
+    dailyTax: 10
 --- !u!1 &2097269696
 GameObject:
   m_ObjectHideFlags: 0
@@ -2415,6 +2564,7 @@ SceneRoots:
   m_Roots:
   - {fileID: 963194228}
   - {fileID: 705507995}
+  - {fileID: 1339293427}
   - {fileID: 559283598}
   - {fileID: 1111096120}
   - {fileID: 1169694498}
