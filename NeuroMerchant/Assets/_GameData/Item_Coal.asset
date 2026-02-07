@@ -13,4 +13,6 @@ MonoBehaviour:
   m_Name: Item_Coal
   m_EditorClassIdentifier: 
   itemName: Coal
-  basePrice: 15
+  icon: {fileID: 0}
+  basePrice: 8
+  dailyBaseConsumption: 8

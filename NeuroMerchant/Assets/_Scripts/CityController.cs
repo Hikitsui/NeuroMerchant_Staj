@@ -3,14 +3,30 @@ using System.Collections.Generic;
 
 public class CityController : MonoBehaviour
 {
-    [Header("Identity")]
+    [Header("Identity & Population")]
     public string cityName;
-    public bool isProducer; // True = Village (Factory), False = City (Consumer)
+    public bool isProducer; // True = Fabrika/Köy (Uretir), False = Şehir (Tuketir)
+    public RegionalBroker assignedBroker;
+
+    [Header("Living City Settings")]
+    public bool enablePopulationGrowth = false; // <--- VARSAYILAN KAPALI (Kıtlıkta nüfus ölmesin diye)
+
+    [Header("Event Modifiers (Read Only)")]
+    public float consumptionMultiplier = 1.0f; // Normal: 1.0, Festival: 1.5
+    public float productionMultiplier = 1.0f;  // Normal: 1.0, Kıtlık: 0.5
+
+    public string activeEventName = ""; // Debug icin: "FESTIVAL", "WAR" vs.
+
+    [Range(100, 5000)]
+    public int population = 100; // Varsayilan Nufus
+    public int minPopulation = 50;
+    public int maxPopulation = 5000;
+
+    // Nufus degisim hizlari (%5)
+    private float growthFactor = 1.05f;
+    private float decayFactor = 0.95f;
 
     [Header("Feudal System")]
-    // The city that owns this settlement.
-    // IF this is a Village, drag its Master City here.
-    // IF this is a City, leave this empty (None).
     public CityController sovereignCity;
 
     [System.Serializable]
@@ -20,17 +36,15 @@ public class CityController : MonoBehaviour
 
         [Header("Stock Settings")]
         public int currentStock;
-        public int maxStock = 200; // Target stock level
-
-        [Header("Economy")]
-        public int basePrice = 10;
+        public int maxStock = 200;
 
         [Header("DEBUG INFO (Read Only)")]
-        public int currentDynamicPrice; // Watch this in Inspector to see real-time price!
+        public int currentDynamicPrice;
+        public int lastDailyConsumption; // Debug: Dün kaç tane yendi?
 
         [Header("Production Settings")]
-        public int dailyProduction = 15; // How much is produced daily?
-        public int dailyTax = 10;        // How much is sent to the Lord daily?
+        public int dailyProduction = 15;
+        public int dailyTax = 10;
     }
 
     [Header("Market")]
@@ -38,7 +52,7 @@ public class CityController : MonoBehaviour
 
     void Start()
     {
-        // Subscribe to the Day Cycle
+        // Zamanlayıcıya abone ol
         if (TimeManager.Instance != null)
         {
             TimeManager.Instance.OnNewDay += HandleDailyEconomy;
@@ -47,7 +61,7 @@ public class CityController : MonoBehaviour
 
     void OnDestroy()
     {
-        // Unsubscribe to prevent errors
+        // Abonelikten çık (Hata olmasın)
         if (TimeManager.Instance != null)
         {
             TimeManager.Instance.OnNewDay -= HandleDailyEconomy;
@@ -56,11 +70,10 @@ public class CityController : MonoBehaviour
 
     void Update()
     {
-        // Calculate prices every frame so we can see them in Inspector
+        // Fiyatları her karede güncelle (Inspector'da görmek için)
         UpdateDebugPrices();
     }
 
-    // --- VISUAL DEBUGGING ---
     void UpdateDebugPrices()
     {
         foreach (var item in marketItems)
@@ -69,98 +82,171 @@ public class CityController : MonoBehaviour
         }
     }
 
-    // --- BALANCED AND REALISTIC PRICE FORMULA (v6.0) ---
+    // --- ALTYAPI: RANDOM HARITA ICIN KURULUM (Gelecek Özellik) ---
+    public void InitializeCity(string name, bool producer, int startPop, List<ItemData> productsToSell)
+    {
+        cityName = name;
+        isProducer = producer;
+        population = startPop;
+
+        marketItems = new List<MarketItem>();
+
+        foreach (var data in productsToSell)
+        {
+            MarketItem newItem = new MarketItem();
+            newItem.itemData = data;
+            // Üreticiyse biraz stokla başla, değilse boş başla
+            newItem.currentStock = producer ? 50 : 0;
+            // Depo kapasitesi nüfusa göre artsın
+            newItem.maxStock = 200 + (startPop / 10);
+
+            newItem.dailyProduction = producer ? Random.Range(10, 20) : 0;
+
+            marketItems.Add(newItem);
+        }
+    }
+
+    // --- FIYAT HESAPLAMA MANTIGI (Doygunluk Eğrisi) ---
     int CalculatePriceLogic(MarketItem marketItem)
     {
-        // 1. FILL RATIO (a value between 0.0 and 3.0)
-        float fillRatio = (float)marketItem.currentStock / marketItem.maxStock;
+        float currentAmount = Mathf.Max(marketItem.currentStock, 1);
+        float fillRatio = currentAmount / marketItem.maxStock;
 
         float priceMultiplier = 1.0f;
 
-        // 2. DETERMINE THE CURVE
         if (fillRatio < 1.0f)
         {
-            // --- SCARCITY STATE (Stock < Max) ---
-            // As stock decreases, the price increases but does NOT SKYROCKET.
-            // Stock = 0   -> 3.0x (Maximum cap)
-            // Stock = 100 -> 1.0x (Normal)
+            // Kıtlık: Fiyat 3 katına kadar çıkabilir
             priceMultiplier = Mathf.Lerp(3.0f, 1.0f, fillRatio);
         }
         else
         {
-            // --- ABUNDANCE STATE (Stock > Max) ---
-            // As stock overflows, the price decreases but NEVER BECOMES FREE.
-            // Stock = 100     -> 1.0x (Normal)
-            // Stock = 200+    -> 0.4x (Maximum 60% discount)
-            // By using (fillRatio - 1.0f), we remap the 1–2 range to 0–1
+            // Bolluk: Fiyat %40'a kadar düşebilir
             priceMultiplier = Mathf.Lerp(1.0f, 0.4f, Mathf.Min(fillRatio - 1.0f, 1.0f));
         }
 
-        // 3. CALCULATE BASED ON BASE PRICE
-        float finalPrice = marketItem.basePrice * priceMultiplier;
+        // Base Price'ı ScriptableObject'ten (ItemData) çekiyoruz
+        float finalPrice = marketItem.itemData.basePrice * priceMultiplier;
 
-        // 4. PRODUCER DISCOUNT (Factory Sale)
-        // Villages should always be 20% cheaper than cities to encourage trade.
-        if (isProducer)
-        {
-            finalPrice *= 0.8f;
-        }
+        // Üretici İndirimi (Fabrika Satış)
+        if (isProducer) finalPrice *= 0.8f;
 
-        // 5. SAFETY (Min 1, Max 1000)
         return Mathf.Clamp(Mathf.RoundToInt(finalPrice), 1, 1000);
     }
 
-
-    // --- PUBLIC API FOR AGENTS ---
+    // Ajanlar tekil fiyat sormak için bunu kullanır
     public int GetPrice(ItemData item)
     {
         foreach (var marketItem in marketItems)
         {
-            if (marketItem.itemData == item)
-            {
-                return CalculatePriceLogic(marketItem);
-            }
+            if (marketItem.itemData == item) return CalculatePriceLogic(marketItem);
         }
-        return 0; // Item not sold here
+        return 0;
     }
 
-    // --- DAILY ECONOMY SIMULATION ---
+    // --- TOPLU SATIŞ SİMÜLASYONU (Marjinal Fayda) ---
+    // Ajan: "Sana 20 tane satarsam elime toplam kaç geçer?"
+    public int GetBulkSellValue(ItemData item, int amountToSell)
+    {
+        var marketItem = marketItems.Find(x => x.itemData == item);
+        if (marketItem == null) return 0;
+
+        int expectedTotalIncome = 0;
+        int tempStock = marketItem.currentStock; // Sanal stok
+
+        for (int i = 0; i < amountToSell; i++)
+        {
+            float amount = Mathf.Max(tempStock, 1);
+            float ratio = amount / marketItem.maxStock;
+
+            // Aynı mantığı tekrar uygula
+            float mult = (ratio < 1.0f) ? Mathf.Lerp(3.0f, 1.0f, ratio) : Mathf.Lerp(1.0f, 0.4f, Mathf.Min(ratio - 1.0f, 1.0f));
+
+            float price = marketItem.itemData.basePrice * mult;
+            if (isProducer) price *= 0.8f;
+
+            expectedTotalIncome += Mathf.Clamp(Mathf.RoundToInt(price), 1, 1000);
+
+            // Sanal stoğu artır (Bir sonraki ürün daha ucuza satılacak)
+            tempStock++;
+        }
+        return expectedTotalIncome;
+    }
+
+    // --- GÜNLÜK EKONOMİ VE NÜFUS DÖNGÜSÜ ---
     void HandleDailyEconomy()
     {
-        // Only Producers (Villages) generate resources
-        if (!isProducer) return;
+        bool allNeedsMet = true;
 
         foreach (var item in marketItems)
         {
-            // 1. PRODUCTION
-            // Allow stock to grow up to 5x MaxStock to allow extreme price crashes
-            if (item.currentStock < item.maxStock * 5)
+            // 1. EVENT ETKILI TUKETIM
+            float populationMultiplier = (float)population / 100.0f;
+
+            // --- BURAYI DEGISTIRDIK: Event Carpanini ekledik ---
+            int baseCons = Mathf.RoundToInt(item.itemData.dailyBaseConsumption * populationMultiplier);
+            int totalConsumption = Mathf.RoundToInt(baseCons * consumptionMultiplier);
+
+            if (totalConsumption < 1) totalConsumption = 1;
+            item.lastDailyConsumption = totalConsumption; // Debug ekraninda artisi gorelim
+
+            if (item.currentStock >= totalConsumption)
             {
-                item.currentStock += item.dailyProduction;
+                item.currentStock -= totalConsumption;
+            }
+            else
+            {
+                item.currentStock = 0;
+                allNeedsMet = false;
             }
 
-            // 2. TAX / LOGISTICS
-            if (sovereignCity != null)
+            // 2. EVENT ETKILI URETIM
+            if (isProducer)
             {
-                // Can we pay the tax?
-                int taxToPay = Mathf.Min(item.currentStock, item.dailyTax);
-
-                if (taxToPay > 0)
+                if (item.currentStock < item.maxStock * 5)
                 {
-                    // Find the same item in the Sovereign City
-                    var lordItem = sovereignCity.marketItems.Find(x => x.itemData == item.itemData);
-
-                    if (lordItem != null)
-                    {
-                        // Transfer goods
-                        item.currentStock -= taxToPay;
-                        lordItem.currentStock += taxToPay;
-
-                        // Optional: Clamp Lord's stock so it doesn't overflow infinitely?
-                        // For now, we let it grow so price drops there too.
-                    }
+                    // --- BURAYI DEGISTIRDIK: Event Carpanini ekledik ---
+                    int productionAmount = Mathf.RoundToInt(item.dailyProduction * productionMultiplier);
+                    item.currentStock += productionAmount;
                 }
             }
+
+            // ... Vergi ve Nufus kismi ayni ...
         }
+        UpdatePopulation(allNeedsMet);
+    }
+
+    void UpdatePopulation(bool isHappy)
+    {
+        // Şalter kapalıysa nüfusu elleme (Sabit kalsın)
+        if (!enablePopulationGrowth) return;
+
+        if (isHappy)
+        {
+            // Her şey yolunda, nüfus artıyor (%5)
+            population = Mathf.RoundToInt(population * growthFactor);
+        }
+        else
+        {
+            // Kıtlık var, insanlar terk ediyor (%5)
+            population = Mathf.RoundToInt(population * decayFactor);
+        }
+
+        // Sınırlar
+        population = Mathf.Clamp(population, minPopulation, maxPopulation);
+    }
+
+    public void ApplyEvent(string eventName, float consMult, float prodMult)
+    {
+        activeEventName = eventName;
+        consumptionMultiplier = consMult;
+        productionMultiplier = prodMult;
+    }
+
+    public void ClearEvent()
+    {
+        activeEventName = "";
+        consumptionMultiplier = 1.0f;
+        productionMultiplier = 1.0f;
     }
 }

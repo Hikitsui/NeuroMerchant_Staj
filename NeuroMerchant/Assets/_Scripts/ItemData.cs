@@ -1,9 +1,15 @@
 using UnityEngine;
 
-// Bu satir, Unity'nin sag tik menusuze "Economy > Item" diye bir secenek ekler.
-[CreateAssetMenu(fileName = "New Item", menuName = "Economy/Item")]
+[CreateAssetMenu(fileName = "New Item", menuName = "Trade/Item Data")]
 public class ItemData : ScriptableObject
 {
-    public string itemName; // Urunun adi (Orn: Bugday)
-    public int basePrice;   // Taban fiyati (Orn: 10 Altin)
+    public string itemName;
+    public Sprite icon;
+
+    [Header("Global Economy")]
+    public int basePrice = 10; // Fiyat artik burada da durabilir referans icin
+
+    [Header("Consumption Settings")]
+    // Iste senin istedigin ayar: Bu urunden gunde kac tane yenir?
+    public int dailyBaseConsumption = 5;
 }

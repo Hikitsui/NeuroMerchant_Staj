@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3fb250019f623d54ba93d8d12d98d409, type: 3}
-  m_Name: Item_Wheat
+  m_Name: Item_Cotton
   m_EditorClassIdentifier: 
-  itemName: Wheat
+  itemName: Cotton
   icon: {fileID: 0}
-  basePrice: 5
+  basePrice: 10
   dailyBaseConsumption: 5

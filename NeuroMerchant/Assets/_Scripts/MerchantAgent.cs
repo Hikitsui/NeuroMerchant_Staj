@@ -3,7 +3,7 @@ using UnityEngine.AI;
 using System.Collections;
 using System.Collections.Generic;
 
-public enum AgentState { Idle, Thinking, MovingToBuy, MovingToSell }
+public enum AgentState { Idle, Thinking, MovingToBuy, MovingToSell, Wandering }
 
 public class MerchantAgent : MonoBehaviour
 {
@@ -14,194 +14,449 @@ public class MerchantAgent : MonoBehaviour
     [Header("Movement")]
     public NavMeshAgent navAgent;
 
-    [Header("Economy & Inventory")]
+    [Header("Economy & Progression")]
     public float currentMoney = 1000f;
+    public int currentTier = 0;
     public int maxCapacity = 20;
 
+    [Header("Maintenance (Daily Costs)")]
+    public int maintenanceCostPerUnit = 2;
+    public int baseDailyCost = 10;
+
     [Header("Current Cargo")]
-    public ItemData carriedItemData; // Ne tasiyor?
-    public int carriedAmount;        // Kac tane tasiyor?
+    public ItemData carriedItemData;
+    public int carriedAmount;
     public int lastCargoCost;
 
-    [Header("Brain")]
-    public CityController[] knownSettlements;
+    [Header("Brain & Memory")]
+    public List<CityController> knownSettlements = new List<CityController>();
+
     private CityController targetBuyCity;
     private CityController targetSellCity;
+    private ItemData targetItemToBuy;
 
     void Start()
     {
         navAgent = GetComponent<NavMeshAgent>();
-        knownSettlements = FindObjectsOfType<CityController>();
+        if (navAgent == null) gameObject.AddComponent<NavMeshAgent>();
+
+        if (TimeManager.Instance != null)
+        {
+            TimeManager.Instance.OnNewDay += PayMaintenanceCost;
+        }
+
+        ScanSurroundings();
         StartCoroutine(ThinkingProcess());
+    }
+
+    void OnDestroy()
+    {
+        if (TimeManager.Instance != null)
+        {
+            TimeManager.Instance.OnNewDay -= PayMaintenanceCost;
+        }
     }
 
     void Update()
     {
-        if (!navAgent.pathPending && navAgent.remainingDistance < 1.0f)
+        if (navAgent != null && !navAgent.pathPending && navAgent.remainingDistance < 2.0f)
         {
-            if (currentState == AgentState.MovingToBuy) ExecuteBuy();
-            else if (currentState == AgentState.MovingToSell) ExecuteSell();
+            if (currentState == AgentState.MovingToBuy)
+            {
+                ExecuteBuy();
+            }
+            else if (currentState == AgentState.MovingToSell)
+            {
+                ExecuteSell();
+            }
+            // Geziniyorsa ve vardiysa, tekrar dusun
+            else if (currentState == AgentState.Wandering)
+            {
+                currentState = AgentState.Idle;
+                StartCoroutine(ThinkingProcess());
+            }
+        }
+    }
+
+    // --- BU KISIM ONEMLI: EGITIMDE CEZA PUANI OLACAK ---
+    void PayMaintenanceCost()
+    {
+        int cargoCost = carriedAmount * maintenanceCostPerUnit;
+        int totalDailyCost = baseDailyCost + cargoCost;
+
+        currentMoney -= totalDailyCost;
+
+        if (currentMoney < 0)
+        {
+            // İleride buraya: AddReward(-100f); EndEpisode(); yazacağız.
+            Debug.LogError("🚨 AGENT BANKRUPT! Money is negative!");
+        }
+    }
+
+    void ScanSurroundings()
+    {
+        var allCities = FindObjectsOfType<CityController>();
+        float visionRange = 50f;
+
+        foreach (var city in allCities)
+        {
+            float dist = Vector3.Distance(transform.position, city.transform.position);
+            if (dist < visionRange)
+            {
+                if (!knownSettlements.Contains(city))
+                {
+                    knownSettlements.Add(city);
+                }
+            }
         }
     }
 
     IEnumerator ThinkingProcess()
     {
         currentState = AgentState.Thinking;
-        targetCityName = "Analyzing Market...";
+        targetCityName = "Planning...";
 
-        float waitTime = Random.Range(1.0f, 2.0f);
-        yield return new WaitForSeconds(waitTime);
+        ScanSurroundings();
+
+        yield return new WaitForSeconds(1.0f);
+
+        if (CheckForUpgrade())
+        {
+            yield break;
+        }
 
         FindBestTradeRoute();
     }
 
+    bool CheckForUpgrade()
+    {
+        CityController nearestCity = FindNearestCity();
+        if (nearestCity == null || nearestCity.assignedBroker == null) return false;
+
+        RegionalBroker broker = nearestCity.assignedBroker;
+        bool wantUpgrade = false;
+
+        if (currentTier == 0 && currentMoney >= broker.tier1Cost) wantUpgrade = true;
+        else if (currentTier == 1 && currentMoney >= broker.tier2Cost) wantUpgrade = true;
+
+        if (wantUpgrade)
+        {
+            targetCityName = "UPGRADING @ " + broker.brokerName;
+            navAgent.SetDestination(broker.transform.position);
+            currentState = AgentState.MovingToBuy;
+            StartCoroutine(WaitForArrivalAndUpgrade(broker));
+            return true;
+        }
+        return false;
+    }
+
+    IEnumerator WaitForArrivalAndUpgrade(RegionalBroker broker)
+    {
+        while (navAgent.pathPending || navAgent.remainingDistance > 2.0f)
+        {
+            yield return null;
+        }
+        PerformUpgrade(broker);
+    }
+
+    void PerformUpgrade(RegionalBroker broker)
+    {
+        if (currentTier == 0 && currentMoney >= broker.tier1Cost)
+        {
+            currentMoney -= broker.tier1Cost;
+            currentTier = 1;
+            maxCapacity = 50;
+            Debug.Log($"<color=gold>UPGRADE COMPLETE!</color> Wagon Acquired!");
+        }
+        else if (currentTier == 1 && currentMoney >= broker.tier2Cost)
+        {
+            currentMoney -= broker.tier2Cost;
+            currentTier = 2;
+            maxCapacity = 100;
+            Debug.Log($"<color=gold>UPGRADE COMPLETE!</color> Caravan Acquired!");
+        }
+
+        currentState = AgentState.Idle;
+        StartCoroutine(ThinkingProcess());
+    }
+
     void FindBestTradeRoute()
     {
+        // Hafiza bos ise once Broker'a git
+        if (knownSettlements.Count < 2)
+        {
+            ConsultBroker();
+            return;
+        }
+
         float maxTotalProfit = -9999;
         CityController bestBuySpot = null;
         CityController bestSellSpot = null;
+        ItemData bestItem = null;
 
         foreach (var seller in knownSettlements)
         {
-            foreach (var buyer in knownSettlements)
+            if (seller == null) continue;
+
+            foreach (var sellerItem in seller.marketItems)
             {
-                if (seller == buyer) continue;
-                if (seller.marketItems.Count == 0 || buyer.marketItems.Count == 0) continue;
-                if (seller.marketItems[0].currentStock <= 0) continue;
+                if (sellerItem == null || sellerItem.itemData == null) continue;
+                if (sellerItem.currentStock <= 0) continue;
 
-                // KURAL: Sadece SEHIRLERE sat (Koyler alim yapmaz)
-                if (buyer.cityName.Contains("Village")) continue;
+                ItemData item = sellerItem.itemData;
 
-                ItemData item = seller.marketItems[0].itemData;
-
-                // --- TOPTANCI MATEMATIGI ---
-
-                // 1. Fiyatlari Al
-                int buyPrice = seller.GetPrice(item);
-                int sellPrice = buyer.GetPrice(item);
-
-                // 2. Kac tane alabilirim? (Inventory ve Para limiti)
-                int canAfford = (int)(currentMoney / buyPrice); // Param kaca yetiyor?
-                int stockAvailable = seller.marketItems[0].currentStock; // Dukkanda kac tane var?
-                int mySpace = maxCapacity; // Cantamda ne kadar yer var?
-
-                // En kucuk olani sec (Limiti belirle)
-                int potentialAmount = Mathf.Min(canAfford, stockAvailable, mySpace);
-
-                // Eger hic alamazsam bu rotayi gec
-                if (potentialAmount <= 0) continue;
-
-                // 3. Toplam Kar Hesabi (Adet * Kar)
-                float grossProfit = (sellPrice - buyPrice) * potentialAmount;
-
-                // 4. Yol Masrafi
-                float distToSeller = Vector3.Distance(transform.position, seller.transform.position);
-                float distToBuyer = Vector3.Distance(seller.transform.position, buyer.transform.position);
-                float travelCost = (distToSeller + distToBuyer) * 0.05f; // Biraz maliyetli olsun
-
-                float finalScore = grossProfit - travelCost;
-
-                // EN IYI ROTA MI?
-                if (finalScore > maxTotalProfit && finalScore > 10.0f) // En az 10 altin kar biraksin
+                foreach (var buyer in knownSettlements)
                 {
-                    maxTotalProfit = finalScore;
-                    bestBuySpot = seller;
-                    bestSellSpot = buyer;
+                    if (buyer == null || seller == buyer) continue;
+
+                    var buyerItem = buyer.marketItems.Find(x => x.itemData == item);
+                    if (buyerItem == null) continue;
+
+                    if (buyer.cityName.Contains("Village")) continue;
+
+                    int unitBuyPrice = seller.GetPrice(item);
+                    if (unitBuyPrice <= 0) continue;
+
+                    // --- DEGISTI: GUVENLI LIMAN YOK! AGRESIF TICARET ---
+                    // Cebindeki tum parayla alabilecegin kadar al.
+                    // Eger batarsan batarsin (Training'de ogreneceksin).
+                    int canAfford = (int)(currentMoney / unitBuyPrice);
+                    // ----------------------------------------------------
+
+                    int stockAvailable = sellerItem.currentStock;
+                    int potentialAmount = Mathf.Min(canAfford, stockAvailable, maxCapacity);
+
+                    if (potentialAmount <= 0) continue;
+
+                    int totalCost = unitBuyPrice * potentialAmount;
+                    int expectedRevenue = buyer.GetBulkSellValue(item, potentialAmount);
+                    float grossProfit = expectedRevenue - totalCost;
+
+                    float distToSeller = Vector3.Distance(transform.position, seller.transform.position);
+                    float distToBuyer = Vector3.Distance(seller.transform.position, buyer.transform.position);
+                    float travelCost = (distToSeller + distToBuyer) * 0.1f;
+
+                    float finalScore = grossProfit - travelCost;
+
+                    if (finalScore > maxTotalProfit && finalScore > 5.0f)
+                    {
+                        maxTotalProfit = finalScore;
+                        bestBuySpot = seller;
+                        bestSellSpot = buyer;
+                        bestItem = item;
+                    }
                 }
             }
         }
 
-        if (bestBuySpot != null && bestSellSpot != null)
+        if (bestBuySpot != null && bestSellSpot != null && bestItem != null)
         {
-            Debug.Log($"<color=green>PLAN:</color> Buy {bestBuySpot.cityName} -> Sell {bestSellSpot.cityName} | Exp. Profit: {maxTotalProfit:F0}");
-
             targetBuyCity = bestBuySpot;
             targetSellCity = bestSellSpot;
+            targetItemToBuy = bestItem;
+
+            // --- DEBUG LOG (Console) ---
+            Debug.Log($"<color=green>PLAN:</color> Buy {targetItemToBuy.itemName} ({targetBuyCity.cityName} -> {targetSellCity.cityName})");
+
+            // --- UI LOG (YENI: Plan'i ekrana yazdir) ---
+            if (WorldUI.Instance != null)
+            {
+                // Debug formatinin aynisi
+                string uiLog = $"<color=green>PLAN:</color> Buy {targetItemToBuy.itemName} ({targetBuyCity.cityName} -> {targetSellCity.cityName})";
+                WorldUI.Instance.AddLog(uiLog);
+            }
+            // ------------------------------------------
 
             currentState = AgentState.MovingToBuy;
             targetCityName = targetBuyCity.cityName;
             navAgent.SetDestination(targetBuyCity.transform.position);
             navAgent.isStopped = false;
         }
+    }
+
+    void ConsultBroker()
+    {
+        if (BrokerManager.Instance == null)
+        {
+            GoToNearestCity();
+            return;
+        }
+
+        // Global Bilgi
+        if (currentMoney >= BrokerManager.Instance.globalInfoCost)
+        {
+            var newInfo = BrokerManager.Instance.BuyGlobalInfo(this);
+            if (newInfo != null)
+            {
+                knownSettlements = newInfo;
+                StartCoroutine(ThinkingProcess());
+                return;
+            }
+        }
+
+        // Yerel Bilgi
+        CityController nearestCity = FindNearestCity();
+        if (nearestCity != null && nearestCity.assignedBroker != null)
+        {
+            int localCost = BrokerManager.Instance.localInfoCost;
+            if (currentMoney >= localCost)
+            {
+                currentMoney -= localCost;
+                List<CityController> localInfo = nearestCity.assignedBroker.GetLocalMarketInfo();
+                foreach (var city in localInfo)
+                {
+                    if (!knownSettlements.Contains(city)) knownSettlements.Add(city);
+                }
+                StartCoroutine(ThinkingProcess());
+                return;
+            }
+        }
+
+        // Para yoksa en yakin sehre git (Rastgele gezme yok)
+        GoToNearestCity();
+    }
+
+    // --- RASTGELE GEZME YERINE -> SEHIR HOPPLAMA ---
+    void GoToNearestCity()
+    {
+        var allCities = FindObjectsOfType<CityController>();
+        CityController bestTarget = null;
+        float minDst = Mathf.Infinity;
+
+        foreach (var city in allCities)
+        {
+            // Su an oldugum yer haric
+            if (Vector3.Distance(transform.position, city.transform.position) < 5.0f) continue;
+
+            float dst = Vector3.Distance(transform.position, city.transform.position);
+            if (dst < minDst)
+            {
+                minDst = dst;
+                bestTarget = city;
+            }
+        }
+
+        if (bestTarget != null)
+        {
+            Debug.Log($"<color=orange>EXPLORING:</color> No trade found. Moving to {bestTarget.cityName} to check prices.");
+            targetCityName = bestTarget.cityName;
+            navAgent.SetDestination(bestTarget.transform.position);
+            currentState = AgentState.Wandering; // YENI STATE
+        }
         else
         {
-            Debug.Log("No profitable trades. Waiting for Day Cycle...");
+            Debug.LogWarning("Nowhere to go! Waiting...");
             StartCoroutine(ThinkingProcess());
         }
     }
 
     void ExecuteBuy()
     {
+        // Hedef yoksa veya durum yanlışa işlem yapma
         if (targetBuyCity == null || currentState != AgentState.MovingToBuy) return;
 
-        int price = targetBuyCity.GetPrice(targetBuyCity.marketItems[0].itemData);
-        int stock = targetBuyCity.marketItems[0].currentStock;
+        // Marketteki ürünü bul
+        var marketItem = targetBuyCity.marketItems.Find(x => x.itemData == targetItemToBuy);
 
-        int canAfford = (int)(currentMoney / price);
-        int amountToBuy = Mathf.Min(canAfford, stock, maxCapacity);
-
-        if (amountToBuy > 0)
+        // Ürün varsa ve stoğu bitmemişse
+        if (marketItem != null && marketItem.currentStock > 0)
         {
-            // Islemi Yap
-            int totalCost = amountToBuy * price;
+            int price = targetBuyCity.GetPrice(targetItemToBuy);
 
-            currentMoney -= totalCost;
-            targetBuyCity.marketItems[0].currentStock -= amountToBuy;
+            // Paramızla kaç tane alabiliriz?
+            int canAfford = (int)(currentMoney / price);
 
-            // Cantaya Koy ve Fisi Kaydet
-            carriedItemData = targetBuyCity.marketItems[0].itemData;
-            carriedAmount = amountToBuy;
-            lastCargoCost = totalCost; // <--- MALIYETI KAYDETTIK
+            // Alabileceğimiz miktar (Para limiti, Stok limiti, Taşıma kapasitesi limiti)
+            int amountToBuy = Mathf.Min(canAfford, marketItem.currentStock, maxCapacity);
 
-            // DETAYLI LOG (Alis Fisi)
-            Debug.Log($"<color=cyan>BUYING:</color> Bought {carriedAmount}x {carriedItemData.itemName} from {targetBuyCity.cityName}.\n" +
-                      $"Unit Price: {price} G | Total Cost: <color=red>-{totalCost} G</color>");
+            if (amountToBuy > 0)
+            {
+                // -- İŞLEM BAŞLIYOR --
+                int totalCost = amountToBuy * price;
+                currentMoney -= totalCost;              // Parayı düş
+                marketItem.currentStock -= amountToBuy; // Stoğu düş
 
-            currentState = AgentState.MovingToSell;
-            targetCityName = targetSellCity.cityName;
-            navAgent.SetDestination(targetSellCity.transform.position);
+                // Kargo bilgilerini güncelle
+                carriedItemData = targetItemToBuy;
+                carriedAmount = amountToBuy;
+                lastCargoCost = totalCost;
+
+                // --- UI LOG GÖNDERİMİ ---
+                if (WorldUI.Instance != null)
+                {
+                    // Cyan rengini kelime bitiminde kapattik (Hata olmasin diye)
+                    string logMessage = $"BUYING:</color> {carriedAmount}x {carriedItemData.itemName} from {targetBuyCity.cityName}";
+                    WorldUI.Instance.AddLog(logMessage);
+                }
+
+                // Bir sonraki aşamaya geç: Satmaya git
+                currentState = AgentState.MovingToSell;
+                targetCityName = targetSellCity.cityName;
+                navAgent.SetDestination(targetSellCity.transform.position);
+            }
+            else
+            {
+                // Paramız yetmediyse veya stok 0 ise tekrar düşün
+                StartCoroutine(ThinkingProcess());
+            }
         }
         else
         {
+            // Ürün bulunamadıysa tekrar düşün
             StartCoroutine(ThinkingProcess());
         }
     }
 
     void ExecuteSell()
     {
+        // Yükümüz var mı ve hedef doğru mu?
         if (carriedItemData != null && targetSellCity != null && currentState == AgentState.MovingToSell)
         {
-            // Hedef sehrin market listesinde elimdeki urunu bul
+            // Hedef şehrin marketinde bu ürün var mı? (Fiyat hesaplamak için)
             var targetMarketItem = targetSellCity.marketItems.Find(x => x.itemData == carriedItemData);
 
             if (targetMarketItem != null)
             {
-                // Satis İslemi
-                int price = targetSellCity.GetPrice(carriedItemData);
-                int totalIncome = price * carriedAmount;
+                // -- İŞLEM BAŞLIYOR --
+                // Toplu satış değeri hesapla (Marjinal fayda)
+                int realTotalIncome = targetSellCity.GetBulkSellValue(carriedItemData, carriedAmount);
 
-                currentMoney += totalIncome;
-                targetMarketItem.currentStock += carriedAmount;
+                currentMoney += realTotalIncome;               // Kasaya para ekle
+                targetMarketItem.currentStock += carriedAmount; // Şehrin stoğunu artır
 
-                // KAR HESABI (Satis - Alis Maliyeti)
-                int netProfit = totalIncome - lastCargoCost;
+                // Kâr hesapla
+                int netProfit = realTotalIncome - lastCargoCost;
 
-                // DETAYLI LOG (Satis Fisi)
-                Debug.Log($"<color=yellow>SELLING:</color> Sold {carriedAmount}x {carriedItemData.itemName} to {targetSellCity.cityName}.\n" +
-                          $"Unit Price: {price} G | Income: <color=green>+{totalIncome} G</color> | NET PROFIT: <color=green>+{netProfit} G</color> 🤑");
+                // --- UI LOG GÖNDERİMİ ---
+                if (WorldUI.Instance != null)
+                {
+                    // Renk kodları düzeltildi
+                    string logMessage = $"<color=yellow>SELLING:</color> Sold to {targetSellCity.cityName}. Profit: <color=green>+{netProfit}</color>";
+                    WorldUI.Instance.AddLog(logMessage);
+                }
+
+                // Envanteri temizle
+                carriedItemData = null;
+                carriedAmount = 0;
+                lastCargoCost = 0;
             }
-            else
-            {
-                Debug.LogError($"ERROR: {targetSellCity.cityName} does not accept {carriedItemData.itemName}!");
-            }
 
-            // Cantayi ve Fisi Sifirla
-            carriedItemData = null;
-            carriedAmount = 0;
-            lastCargoCost = 0;
-
+            // İş bitti, yeni plan yap
             StartCoroutine(ThinkingProcess());
         }
+    }
+
+    CityController FindNearestCity()
+    {
+        var all = FindObjectsOfType<CityController>();
+        CityController nearest = null;
+        float minDst = Mathf.Infinity;
+        foreach (var city in all)
+        {
+            float dst = Vector3.Distance(transform.position, city.transform.position);
+            if (dst < minDst) { minDst = dst; nearest = city; }
+        }
+        return nearest;
     }
 
     private void OnTriggerEnter(Collider other)

@@ -54,7 +54,7 @@ public class TradingUI : MonoBehaviour
                         $"MY MONEY: {currentAgent.currentMoney}";
     }
 
-    // --- BUY LOGIC ---
+    /*--- BUY LOGIC ---
     public void OnBuyButton()
     {
         if (currentCity == null) return;
@@ -94,4 +94,5 @@ public class TradingUI : MonoBehaviour
         Debug.Log("SOLD Item!");
         RefreshUI();
     }
+    */
 }

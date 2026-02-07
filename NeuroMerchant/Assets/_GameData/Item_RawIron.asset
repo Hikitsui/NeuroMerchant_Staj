@@ -13,4 +13,6 @@ MonoBehaviour:
   m_Name: Item_RawIron
   m_EditorClassIdentifier: 
   itemName: RawIron
-  basePrice: 25
+  icon: {fileID: 0}
+  basePrice: 8
+  dailyBaseConsumption: 8
