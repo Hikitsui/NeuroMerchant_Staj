@@ -229,7 +229,22 @@ public class MerchantAgent : MonoBehaviour
                     if (potentialAmount <= 0) continue;
 
                     int totalCost = unitBuyPrice * potentialAmount;
+                    // 2. Gelir Hesabı
                     int expectedRevenue = buyer.GetBulkSellValue(item, potentialAmount);
+
+                    // --- SÖZLEŞME / İHALE ALGISI (RL TUZAĞI) ---
+                    // Eger sehirde bu mal icin ihale varsa, ajan "Ben bu ihaleyi alirim!" diyecek.
+                    // (Kapasitesi yetmese bile bunu zannedecek. Oraya gidince patlayacak).
+                    if (ContractManager.Instance != null)
+                    {
+                        int contractBounty = ContractManager.Instance.GetPotentialContractReward(buyer, item);
+                        if (contractBounty > -1)
+                        {
+                            expectedRevenue = contractBounty; // Gozu parayla dondu!
+                        }
+                    }
+                    // ------------------------------------------
+
                     float grossProfit = expectedRevenue - totalCost;
 
                     float distToSeller = Vector3.Distance(transform.position, seller.transform.position);
@@ -409,31 +424,39 @@ public class MerchantAgent : MonoBehaviour
 
     void ExecuteSell()
     {
-        // Yükümüz var mı ve hedef doğru mu?
         if (carriedItemData != null && targetSellCity != null && currentState == AgentState.MovingToSell)
         {
-            // Hedef şehrin marketinde bu ürün var mı? (Fiyat hesaplamak için)
             var targetMarketItem = targetSellCity.marketItems.Find(x => x.itemData == carriedItemData);
 
             if (targetMarketItem != null)
             {
-                // -- İŞLEM BAŞLIYOR --
-                // Toplu satış değeri hesapla (Marjinal fayda)
-                int realTotalIncome = targetSellCity.GetBulkSellValue(carriedItemData, carriedAmount);
+                int realTotalIncome = 0;
+                int contractReward = 0;
 
-                currentMoney += realTotalIncome;               // Kasaya para ekle
-                targetMarketItem.currentStock += carriedAmount; // Şehrin stoğunu artır
-
-                // Kâr hesapla
-                int netProfit = realTotalIncome - lastCargoCost;
-
-                // --- UI LOG GÖNDERİMİ ---
-                if (WorldUI.Instance != null)
+                // --- SÖZLEŞME TESLİMAT KONTROLÜ ---
+                bool contractCompleted = false;
+                if (ContractManager.Instance != null)
                 {
-                    // Renk kodları düzeltildi
-                    string logMessage = $"<color=yellow>SELLING:</color> Sold to {targetSellCity.cityName}. Profit: <color=green>+{netProfit}</color>";
-                    WorldUI.Instance.AddLog(logMessage);
+                    // Ajan elindeki mali sehre verir. Miktar sozlesmeye yetiyorsa odulu alir.
+                    contractCompleted = ContractManager.Instance.TryCompleteContract(targetSellCity, carriedItemData, carriedAmount, out contractReward);
                 }
+
+                if (contractCompleted)
+                {
+                    realTotalIncome = contractReward; // DEVASA ODUL!
+                    if (WorldUI.Instance != null) WorldUI.Instance.AddLog($"<color=orange>[CONTRACT COMPLETED]</color> {targetSellCity.cityName} (+{realTotalIncome} G)");
+                }
+                else
+                {
+                    // Eğer ajan ihale icin geldi ama 55 yerine 50 getirdiyse ihale TAMAMLANMAZ.
+                    // Malı normal piyasa fiyatinan (ucuzdan) satmak zorunda kalir (Ceza niteliginde).
+                    realTotalIncome = targetSellCity.GetBulkSellValue(carriedItemData, carriedAmount);
+                    if (WorldUI.Instance != null) WorldUI.Instance.AddLog($"<color=green>[SELL]</color> {carriedItemData.itemName} to {targetSellCity.cityName} (+{realTotalIncome - lastCargoCost} G)");
+                }
+
+                currentMoney += realTotalIncome;
+                targetMarketItem.currentStock += carriedAmount;
+                int netProfit = realTotalIncome - lastCargoCost;
 
                 // Envanteri temizle
                 carriedItemData = null;

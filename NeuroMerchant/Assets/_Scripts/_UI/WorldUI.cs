@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using TMPro;
 using System.Text;
 using System.Collections.Generic;
@@ -74,9 +74,28 @@ public class WorldUI : MonoBehaviour
                 }
             }
         }
+        // --- DÜZELTİLEN KISIM BURASI (Ait olduğu yere geldi) ---
         else
         {
             sb.AppendLine("<i>No more events this month.</i>");
+        }
+        // ---------------------------------------------------------
+
+        sb.AppendLine("");
+
+        // YENI EKLENEN KISIM: AKTIF IHALELER
+        sb.AppendLine("<color=orange><b>--- ROYAL CONTRACTS ---</b></color>");
+        if (ContractManager.Instance != null && ContractManager.Instance.activeContracts.Count > 0)
+        {
+            foreach (var contract in ContractManager.Instance.activeContracts)
+            {
+                sb.AppendLine($"> Deliver {contract.requiredAmount}x {contract.requiredItem.itemName}");
+                sb.AppendLine($"  To: {contract.targetCity.cityName} ({contract.daysLeft} Days) | Reward: <color=green>{contract.rewardGold} G</color>");
+            }
+        }
+        else
+        {
+            sb.AppendLine("<i>No active contracts.</i>");
         }
 
         if (eventInfoText != null) eventInfoText.text = sb.ToString();
