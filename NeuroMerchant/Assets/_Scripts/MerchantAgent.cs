@@ -45,8 +45,32 @@ public class MerchantAgent : MonoBehaviour
             TimeManager.Instance.OnNewDay += PayMaintenanceCost;
         }
 
+        var allCities = FindObjectsOfType<CityController>();
+        if (allCities.Length == 0)
+        {
+            Debug.LogWarning("MerchantAgent: No cities found! Retrying in 1s...");
+            StartCoroutine(WaitForCities());
+            return;
+        }
+
         ScanSurroundings();
         StartCoroutine(ThinkingProcess());
+    }
+
+    IEnumerator WaitForCities()
+    {
+        while (true)
+        {
+            yield return new WaitForSeconds(1.0f);
+            var allCities = FindObjectsOfType<CityController>();
+            if (allCities.Length > 0)
+            {
+                Debug.Log("MerchantAgent: Cities found! Starting...");
+                ScanSurroundings();
+                StartCoroutine(ThinkingProcess());
+                yield break;
+            }
+        }
     }
 
     void OnDestroy()
@@ -317,7 +341,7 @@ public class MerchantAgent : MonoBehaviour
             if (currentMoney >= localCost)
             {
                 currentMoney -= localCost;
-                List<CityController> localInfo = nearestCity.assignedBroker.GetLocalMarketInfo();
+                List<CityController> localInfo = nearestCity.assignedBroker.BuyLocalInfo(this);
                 foreach (var city in localInfo)
                 {
                     if (!knownSettlements.Contains(city)) knownSettlements.Add(city);
@@ -337,6 +361,12 @@ public class MerchantAgent : MonoBehaviour
         var allCities = FindObjectsOfType<CityController>();
         CityController bestTarget = null;
         float minDst = Mathf.Infinity;
+
+        if (allCities.Length == 0)
+        {
+            Debug.LogWarning("MerchantAgent: No cities found! Waiting for world gen...");
+            return;
+        }
 
         foreach (var city in allCities)
         {

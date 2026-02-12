@@ -208,12 +208,33 @@ public class CityController : MonoBehaviour
                     // --- BURAYI DEGISTIRDIK: Event Carpanini ekledik ---
                     int productionAmount = Mathf.RoundToInt(item.dailyProduction * productionMultiplier);
                     item.currentStock += productionAmount;
+
+                    // --- TAX SYSTEM (GOODS BASED) ---
+                    // Uretilen malin %20'si (veya sabit miktar) vergi olarak gider
+                    int taxAmount = Mathf.CeilToInt(productionAmount * 0.40f); 
+                    
+                    if (sovereignCity != null)
+                    {
+                        // Bagli oldugum sehire URUN olarak vergi ode
+                        sovereignCity.ReceiveTax(item.itemData, taxAmount);
+                        
+                        // Vergiyi stoktan dus (Cunku gonderdildi)
+                        item.currentStock -= taxAmount;
+                    }
                 }
             }
-
-            // ... Vergi ve Nufus kismi ayni ...
         }
         UpdatePopulation(allNeedsMet);
+    }
+
+    public void ReceiveTax(ItemData item, int amount)
+    {
+        var marketItem = marketItems.Find(x => x.itemData == item);
+        if (marketItem != null)
+        {
+            marketItem.currentStock += amount;
+            // Debug.Log($"{cityName} received {amount} {item.itemName} as TAX.");
+        }
     }
 
     void UpdatePopulation(bool isHappy)
