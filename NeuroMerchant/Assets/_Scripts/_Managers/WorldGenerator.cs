@@ -4,20 +4,26 @@ using System.Collections.Generic;
 
 public class WorldGenerator : MonoBehaviour
 {
+    [Header("DEVELOPER MODE")]
+    public bool trainingMode = true; // Harita boyutunu ve görev sayısını kontrol eder
+    public bool enablePopulationDynamics = false; // <-- YENİ: Nüfus artışını/azalışını kontrol eder
+
     [Header("Prefabs")]
     public GameObject cityPrefab;
     public GameObject villagePrefab;
-    public GameObject brokerPrefab; // <--- NEW: Broker Prefab
-
+    public GameObject brokerPrefab;
 
     [Header("Map Settings")]
-    [Header("Map Settings")]
-    public float mapSize = 85f;       // 20x20 Plane (200 birim) icin 85f (-85, +85) tum haritayi doldurur.
-    public float cityMinDistance = 8f; // Harita buyudugu icin sehirleri biraz acalim (Rahat yerlesim)
-    
+    public float fullMapSize = 180f;
+    public float trainingMapSize = 60f;
+
+    // Grid Ayarlari
+    private int gridCols;
+    private int gridRows;
+
     [Header("Village Settings")]
-    public float minVillageDist = 1.5f; // KOYLER IP GIBI YAKIN (Degismedi)
-    public float maxVillageDist = 3.5f;
+    public float minVillageDist = 10f;
+    public float maxVillageDist = 25f;
 
     [Header("Economy Items")]
     public ItemData itemWheat;
@@ -33,9 +39,10 @@ public class WorldGenerator : MonoBehaviour
     public ItemData itemSpices;
     public ItemData itemJewelry;
 
-    // Olusan sehirleri ve tum yerlesimleri tutan listeler
     private List<GameObject> spawnedCities = new List<GameObject>();
     private List<Vector3> allSettlementPositions = new List<Vector3>();
+
+    private float currentMapSize;
 
     void Awake()
     {
@@ -44,41 +51,67 @@ public class WorldGenerator : MonoBehaviour
 
     void GenerateWorld()
     {
-        Debug.Log("<color=cyan>WORLD GENERATOR:</color> Establishing Hub & Spoke Network...");
+        string modeLog = trainingMode ? "TRAINING (Tiny World)" : "FULL PRODUCTION (Massive World)";
+        string popLog = enablePopulationDynamics ? "DYNAMIC POPULATION (Growth ON)" : "STATIC POPULATION (Growth OFF)";
 
-        // --- ADIM 1: KÖY ÜRETİM LİSTESİNİ HAZIRLA (25 Adet) ---
-        // Bu liste sırasıyla şehirlere dağıtılacak
+        Debug.Log($"<color=cyan>WORLD GENERATOR:</color> Initializing {modeLog} with {popLog}...");
+
+        // --- ADIM 0: MOD AYARLARI ---
+        if (trainingMode)
+        {
+            currentMapSize = trainingMapSize;
+            gridCols = 2; // 2x2 = 4 Sehir
+            gridRows = 2;
+        }
+        else
+        {
+            currentMapSize = fullMapSize;
+            gridCols = 5; // 5x4 = 20 Sehir
+            gridRows = 4;
+        }
+
+        // --- ADIM 1: URETIM LISTESINI HAZIRLA ---
         Queue<ItemData> villageProductionQueue = new Queue<ItemData>();
-        
-        // Tier 1 (Bol)
-        for(int i=0; i<4; i++) villageProductionQueue.Enqueue(itemWheat);
-        for(int i=0; i<3; i++) villageProductionQueue.Enqueue(itemWood);
-        for(int i=0; i<3; i++) villageProductionQueue.Enqueue(itemFish);
-        for(int i=0; i<3; i++) villageProductionQueue.Enqueue(itemCotton);
-        // Tier 2 (Orta)
-        for(int i=0; i<2; i++) villageProductionQueue.Enqueue(itemMeat);
-        for(int i=0; i<2; i++) villageProductionQueue.Enqueue(itemCoal);
-        for(int i=0; i<2; i++) villageProductionQueue.Enqueue(itemLeather);
-        for(int i=0; i<2; i++) villageProductionQueue.Enqueue(itemIron);
-        // Tier 3 (Nadir)
-        villageProductionQueue.Enqueue(itemClothes);
-        villageProductionQueue.Enqueue(itemTools);
-        villageProductionQueue.Enqueue(itemSpices);
-        villageProductionQueue.Enqueue(itemJewelry);
+        List<ItemData> allItemsForCities = new List<ItemData>();
 
+        if (trainingMode)
+        {
+            villageProductionQueue.Enqueue(itemWheat);
+            villageProductionQueue.Enqueue(itemWood);
+            villageProductionQueue.Enqueue(itemIron);
+            villageProductionQueue.Enqueue(itemCotton);
+            villageProductionQueue.Enqueue(itemCoal);
 
-        // --- ADIM 2: GRID SISTEMI ILE SEHIRLERI OLUSTUR (4x5 = 20 Sehir) ---
-        List<ItemData> allItems = new List<ItemData> { itemWheat, itemWood, itemFish, itemCotton, itemMeat, itemCoal, itemLeather, itemIron, itemClothes, itemTools, itemSpices, itemJewelry };
-        
-        int gridCols = 5; // Yatayda 5
-        int gridRows = 4; // Dikeyde 4
-        
-        float totalMapSize = 180f; // 200 birim haritanin guvenli alani (-90, +90)
-        float cellWidth = totalMapSize / gridCols; // ~36 birim genislik
-        float cellHeight = totalMapSize / gridRows; // ~45 birim yukseklik
-        
-        float startOffsetX = -totalMapSize / 2f + cellWidth / 2f; 
-        float startOffsetZ = -totalMapSize / 2f + cellHeight / 2f;
+            allItemsForCities = new List<ItemData> { itemWheat, itemWood, itemIron, itemCotton, itemCoal };
+        }
+        else
+        {
+            // Tier 1
+            for (int i = 0; i < 4; i++) villageProductionQueue.Enqueue(itemWheat);
+            for (int i = 0; i < 3; i++) villageProductionQueue.Enqueue(itemWood);
+            for (int i = 0; i < 3; i++) villageProductionQueue.Enqueue(itemFish);
+            for (int i = 0; i < 3; i++) villageProductionQueue.Enqueue(itemCotton);
+            // Tier 2
+            for (int i = 0; i < 2; i++) villageProductionQueue.Enqueue(itemMeat);
+            for (int i = 0; i < 2; i++) villageProductionQueue.Enqueue(itemCoal);
+            for (int i = 0; i < 2; i++) villageProductionQueue.Enqueue(itemLeather);
+            for (int i = 0; i < 2; i++) villageProductionQueue.Enqueue(itemIron);
+            // Tier 3
+            villageProductionQueue.Enqueue(itemClothes);
+            villageProductionQueue.Enqueue(itemTools);
+            villageProductionQueue.Enqueue(itemSpices);
+            villageProductionQueue.Enqueue(itemJewelry);
+
+            allItemsForCities = new List<ItemData> { itemWheat, itemWood, itemFish, itemCotton, itemMeat, itemCoal, itemLeather, itemIron, itemClothes, itemTools, itemSpices, itemJewelry };
+        }
+
+        // --- ADIM 2: GRID SISTEMI ILE SEHIRLERI OLUSTUR ---
+
+        float cellWidth = currentMapSize / gridCols;
+        float cellHeight = currentMapSize / gridRows;
+
+        float startOffsetX = -currentMapSize / 2f + cellWidth / 2f;
+        float startOffsetZ = -currentMapSize / 2f + cellHeight / 2f;
 
         int cityCount = 0;
 
@@ -86,32 +119,34 @@ public class WorldGenerator : MonoBehaviour
         {
             for (int z = 0; z < gridRows; z++)
             {
-                // Hucrenin merkezini bul (Dikdortgen olabilir)
                 float cellCenterX = startOffsetX + (x * cellWidth);
                 float cellCenterZ = startOffsetZ + (z * cellHeight);
-                
-                // Merkezden hafif sapma yap (Dogallik icin)
-                float randomOffsetX = Random.Range(-cellWidth * 0.3f, cellWidth * 0.3f);
-                float randomOffsetZ = Random.Range(-cellHeight * 0.3f, cellHeight * 0.3f);
-                
+
+                float randomOffsetX = Random.Range(-cellWidth * 0.25f, cellWidth * 0.25f);
+                float randomOffsetZ = Random.Range(-cellHeight * 0.25f, cellHeight * 0.25f);
+
                 Vector3 cityPos = new Vector3(cellCenterX + randomOffsetX, 0, cellCenterZ + randomOffsetZ);
-                
-                // NavMesh uzerinde gecerli mi?
+
                 cityPos = GetNavMeshPos(cityPos);
-                
+
                 if (cityPos != Vector3.zero)
                 {
                     GameObject cityObj = Instantiate(cityPrefab, cityPos, Quaternion.identity, this.transform);
-                    
-                    // İlk 5 Şehir "Büyük Merkez" olsun
-                    bool isGrand = (cityCount < 5);
-                    string name = isGrand ? $"Grand_City_{cityCount+1}" : $"City_{cityCount+1}";
+
+                    string name = $"City_{cityCount + 1}";
+                    if (!trainingMode && cityCount < 5) name = $"Grand_City_{cityCount + 1}";
+
                     cityObj.name = name;
-                    
+
                     CityController cc = cityObj.GetComponent<CityController>();
-                    int startPop = isGrand ? Random.Range(300, 800) : Random.Range(200, 500);
-                    cc.InitializeCity(name, false, startPop, allItems);
-                    
+                    int startPop = (!trainingMode && cityCount < 5) ? Random.Range(300, 800) : Random.Range(100, 300);
+
+                    cc.InitializeCity(name, false, startPop, allItemsForCities);
+
+                    // --- YENİ EKLENEN KISIM: NÜFUS DİNAMİĞİNİ AYARLA ---
+                    cc.enablePopulationGrowth = enablePopulationDynamics;
+                    // ---------------------------------------------------
+
                     spawnedCities.Add(cityObj);
                     allSettlementPositions.Add(cityPos);
                     cityCount++;
@@ -119,177 +154,148 @@ public class WorldGenerator : MonoBehaviour
             }
         }
 
-        // --- ADIM 3: KÖYLERİ ŞEHİRLERİN ETRAFINA DİZ (UYDULAR) ---
-        // İlk 5 şehre 2'şer köy, geri kalan 15 şehre 1'er köy (Toplam 25)
-        
+        // --- ADIM 3: KOYLERI DAGIT ---
         for (int i = 0; i < spawnedCities.Count; i++)
         {
             if (spawnedCities[i] == null) continue;
 
-            // BUG FIX: Index yerine isme bak. (Cunku bazi sehirler spawn olamayabilir)
-            bool isGrandCity = spawnedCities[i].name.Contains("Grand");
-            // Ilk 5 sehir grand oldugu icin koyleri oncelikli alirlar. (Toplam 25 Koy: 5x2 + 15x1)
-            int villagesToSpawn = isGrandCity ? 2 : 1; 
+            int villagesToSpawn = 1;
+
+            if (trainingMode)
+            {
+                if (i == 0) villagesToSpawn = 2;
+            }
+            else
+            {
+                if (spawnedCities[i].name.Contains("Grand")) villagesToSpawn = 2;
+            }
 
             for (int k = 0; k < villagesToSpawn; k++)
             {
                 if (villageProductionQueue.Count == 0) break;
 
                 ItemData product = villageProductionQueue.Dequeue();
-                
-                // Şehrin etrafında (5-10 birim) uygun yer bul
+
                 Vector3 villagePos = GetValidVillagePosition(spawnedCities[i].transform.position);
-                
+
                 if (villagePos != Vector3.zero)
                 {
                     GameObject villageObj = Instantiate(villagePrefab, villagePos, Quaternion.identity, this.transform);
-                    villageObj.name = $"Village_{spawnedCities[i].name}_{product.itemName}"; // Örn: Village_City_1_Iron
-                    
-                    Debug.Log($"SPAWNED: {villageObj.name} (Parent: {spawnedCities[i].name})");
+                    villageObj.name = $"Village_{spawnedCities[i].name}_{product.itemName}";
 
                     CityController cc = villageObj.GetComponent<CityController>();
-                    cc.InitializeCity(villageObj.name, true, Random.Range(50, 150), new List<ItemData>{ product });
-                    
+                    cc.InitializeCity(villageObj.name, true, Random.Range(50, 150), new List<ItemData> { product });
+
+                    // --- YENİ EKLENEN KISIM: KÖYLER DE ETKİLENSİN ---
+                    cc.enablePopulationGrowth = enablePopulationDynamics;
+                    // ------------------------------------------------
+
+                    CityController parentCityCheck = spawnedCities[i].GetComponent<CityController>();
+                    if (parentCityCheck != null)
+                    {
+                        cc.sovereignCity = parentCityCheck;
+                    }
+
                     allSettlementPositions.Add(villagePos);
                 }
             }
         }
 
-        // --- ADIM 4: BROKER SISTEMI VE CLUSTERING ---
+        // --- ADIM 4: BROKER KURULUMU ---
         InitializeBrokersAndClusters();
 
-        if (spawnedCities.Count == 0)
-        {
-            Debug.LogError("WORLD GENERATOR: 0 Cities spawned! Did you bake the NavMesh?");
-        }
-        else
-        {
-            Debug.Log($"<color=green>WORLD GEN COMPLETE:</color> {spawnedCities.Count} Cities, Villages and Brokers placed.");
-        }
+        Debug.Log($"<color=green>WORLD GEN COMPLETE:</color> Cities: {spawnedCities.Count}. Pop Dynamics: {enablePopulationDynamics}");
     }
 
     void InitializeBrokersAndClusters()
     {
-        // 5 Tane Grand City var, bunlari HUB yapiyoruz.
-        // Her Hub'a yakinindaki diger sehirleri baglayacagiz.
-        
+        if (trainingMode && spawnedCities.Count > 0)
+        {
+            CreateBrokerForCluster(spawnedCities, "Training_Guild");
+            return;
+        }
+
         List<CityController> hubs = new List<CityController>();
         List<CityController> others = new List<CityController>();
 
-        foreach(GameObject cityObj in spawnedCities)
+        foreach (GameObject cityObj in spawnedCities)
         {
             CityController cc = cityObj.GetComponent<CityController>();
-            if (cityObj.name.Contains("Grand")) 
-                hubs.Add(cc);
-            else 
-                others.Add(cc);
+            if (cityObj.name.Contains("Grand")) hubs.Add(cc);
+            else others.Add(cc);
         }
 
-        // Her HUB icin islem yap
         foreach (CityController hub in hubs)
         {
             List<CityController> cluster = new List<CityController>();
-            cluster.Add(hub); // Kendisi de dahil
+            cluster.Add(hub);
 
-            // 1. HUB'a bir Broker ata (Prefab Instantiate)
-            if (brokerPrefab != null)
+            others.Sort((a, b) => Vector3.Distance(hub.transform.position, a.transform.position)
+                                    .CompareTo(Vector3.Distance(hub.transform.position, b.transform.position)));
+
+            int countToAdd = 3;
+            for (int i = 0; i < countToAdd; i++)
             {
-                // Grand City'nin tam ortasina degil, YOL USTUNE (Orta noktaya) koyuyoruz.
-                // Henuz uydu sehirleri bilmiyoruz, once onlari bulalim.
-                
-                // 2. Cluster olustur (En yakin 3 normal sehri bul ve bagla)
-                others.Sort((a, b) => Vector3.Distance(hub.transform.position, a.transform.position)
-                                        .CompareTo(Vector3.Distance(hub.transform.position, b.transform.position)));
-
-                int countToAdd = 3; // Her hub'a 3 uydu sehir (Toplam 5x4 = 20 sehir eder - 5 Grand + 15 Normal / 5 = 3)
-                
-                CityController firstSatellite = null;
-
-                for (int i = 0; i < countToAdd; i++)
+                if (others.Count > 0)
                 {
-                    if (others.Count > 0)
-                    {
-                        CityController satellite = others[0];
-                        if (firstSatellite == null) firstSatellite = satellite; // Ilk uyduyu sakla, yol icin lazim
-                        cluster.Add(satellite);
-                        others.RemoveAt(0); // Artik bu sehir sahipli
-                    }
-                }
-
-                // 3. BROKER YERLESIMI (CENTROID - Agirlik Merkezi)
-                Vector3 centroid = Vector3.zero;
-                foreach(var c in cluster)
-                {
-                    centroid += c.transform.position;
-                }
-                centroid /= cluster.Count; // Tum sehirlerin ortalamasi
-                
-                Vector3 brokerPos = centroid; 
-
-                // Hafif bir offset ekleyelim ki tam ust uste binmesin
-                brokerPos += new Vector3(Random.Range(-2f, 2f), 0, Random.Range(-2f, 2f));
-                
-                // NavMesh uzerinde gecerli bir nokta bulalim
-                brokerPos = GetNavMeshPos(brokerPos);
-                if (brokerPos == Vector3.zero) brokerPos = hub.transform.position; // Guvenli liman
-
-                GameObject brokerObj = Instantiate(brokerPrefab, brokerPos, Quaternion.identity, this.transform);
-                brokerObj.name = $"Broker_Cluster_{hub.cityName}";
-                
-                RegionalBroker rb = brokerObj.GetComponent<RegionalBroker>();
-                if(rb != null)
-                {
-                    rb.InitBroker(cluster);
-                    
-                    // Sehirlere de brokerlarini ata
-                    foreach(var c in cluster)
-                    {
-                        c.assignedBroker = rb;
-                    }
+                    cluster.Add(others[0]);
+                    others.RemoveAt(0);
                 }
             }
+
+            List<GameObject> clusterObjs = new List<GameObject>();
+            foreach (var c in cluster) clusterObjs.Add(c.gameObject);
+
+            CreateBrokerForCluster(clusterObjs, $"Broker_{hub.cityName}");
         }
     }
 
-    // Şehirler için Global Rastgele Konum
-    Vector3 GetValidCityPosition()
+    void CreateBrokerForCluster(List<GameObject> cluster, string brokerName)
     {
-        for (int i = 0; i < 100; i++)
-        {
-            float x = Random.Range(-mapSize, mapSize);
-            float z = Random.Range(-mapSize, mapSize);
-            Vector3 candidate = new Vector3(x, 0, z);
+        if (brokerPrefab == null) return;
 
-            if (IsPositionValid(candidate, cityMinDistance))
-            {
-                return GetNavMeshPos(candidate);
-            }
+        Vector3 centroid = Vector3.zero;
+        foreach (var obj in cluster) centroid += obj.transform.position;
+        centroid /= cluster.Count;
+
+        Vector3 brokerPos = GetNavMeshPos(centroid);
+        if (brokerPos == Vector3.zero) brokerPos = cluster[0].transform.position;
+
+        GameObject brokerObj = Instantiate(brokerPrefab, brokerPos, Quaternion.identity, this.transform);
+        brokerObj.name = brokerName;
+
+        RegionalBroker rb = brokerObj.GetComponent<RegionalBroker>();
+        if (rb != null)
+        {
+            List<CityController> ccList = new List<CityController>();
+            foreach (var obj in cluster) ccList.Add(obj.GetComponent<CityController>());
+
+            rb.servicedSettlements = ccList;
+
+            foreach (var c in ccList) c.assignedBroker = rb;
         }
+    }
+
+    Vector3 GetNavMeshPos(Vector3 pos)
+    {
+        NavMeshHit hit;
+        if (NavMesh.SamplePosition(pos, out hit, 15f, NavMesh.AllAreas)) return hit.position;
         return Vector3.zero;
     }
 
-    // Köyler için "Şehir Merkezli" Halka Konum (10-30 birim)
     Vector3 GetValidVillagePosition(Vector3 centerCity)
     {
         for (int i = 0; i < 50; i++)
         {
-            // Rastgele yön ve mesafe seç
-            Vector2 randomDir = Random.insideUnitCircle.normalized; 
+            Vector2 randomDir = Random.insideUnitCircle.normalized;
             float distance = Random.Range(minVillageDist, maxVillageDist);
-            
-            Vector3 offset = new Vector3(randomDir.x, 0, randomDir.y) * distance;
-            Vector3 candidate = centerCity + offset;
+            Vector3 candidate = centerCity + new Vector3(randomDir.x, 0, randomDir.y) * distance;
 
-            // Diğer köylerle/şehirlerle çakışmasın (5 birim pay bırak)
-            if (IsPositionValid(candidate, 8f)) 
-            {
-                return GetNavMeshPos(candidate);
-            }
+            if (IsPositionValid(candidate, 8f)) return GetNavMeshPos(candidate);
         }
         return Vector3.zero;
     }
 
-    // Çakışma Kontrolü
     bool IsPositionValid(Vector3 pos, float minSpacing)
     {
         foreach (var existing in allSettlementPositions)
@@ -297,16 +303,5 @@ public class WorldGenerator : MonoBehaviour
             if (Vector3.Distance(pos, existing) < minSpacing) return false;
         }
         return true;
-    }
-
-    // NavMesh Kontrolü (Denize/Dağa denk gelmesin)
-    Vector3 GetNavMeshPos(Vector3 pos)
-    {
-        NavMeshHit hit;
-        if (NavMesh.SamplePosition(pos, out hit, 10f, NavMesh.AllAreas))
-        {
-            return hit.position;
-        }
-        return Vector3.zero;
     }
 }

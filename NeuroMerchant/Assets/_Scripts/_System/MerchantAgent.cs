@@ -511,10 +511,5 @@ public class MerchantAgent : MonoBehaviour
         }
         return nearest;
     }
-
-    private void OnTriggerEnter(Collider other)
-    {
-        CityController city = other.GetComponent<CityController>();
-        if (city != null && TradingUI.Instance != null) TradingUI.Instance.ShowTrade(city, this);
-    }
 }
+

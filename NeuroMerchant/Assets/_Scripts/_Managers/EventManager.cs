@@ -6,6 +6,9 @@ public class EventManager : MonoBehaviour
 {
     public static EventManager Instance;
 
+    [Header("DEVELOPER MODE")]
+    public bool trainingMode = true; 
+
     public enum EventType { None, Festival, Famine, Boom, War }
 
     [System.Serializable]
@@ -33,7 +36,8 @@ public class EventManager : MonoBehaviour
     public List<ActiveEvent> activeEvents = new List<ActiveEvent>();
 
     [Header("Settings")]
-    public int eventsPerMonth = 6;
+    public int trainingEventsCount = 2; 
+    public int productionEventsCount = 10; 
 
     private CityController[] allCities;
 
@@ -49,7 +53,6 @@ public class EventManager : MonoBehaviour
             TimeManager.Instance.OnNewMonth += ScheduleNextMonthEvents;
         }
 
-        // Ilk ayin planini hemen yap
         ScheduleNextMonthEvents();
     }
 
@@ -62,13 +65,20 @@ public class EventManager : MonoBehaviour
         }
     }
 
-    // --- 1. AKILLI PLANLAMA ---
     void ScheduleNextMonthEvents()
     {
         scheduledEvents.Clear();
-        Debug.Log($"<color=magenta>EVENT MANAGER:</color> Drafting SMART schedule for the new month...");
 
-        List<CityController> potentialTargets = allCities.OrderBy(x => Random.value).Take(eventsPerMonth).ToList();
+        // MODA GORE SAYIYI BELIRLE
+        int eventCount = trainingMode ? trainingEventsCount : productionEventsCount;
+        string modeLog = trainingMode ? "TRAINING (Low Chaos)" : "FULL (High Chaos)";
+
+        Debug.Log($"<color=magenta>EVENT MANAGER:</color> Drafting schedule ({modeLog}). Target Events: {eventCount}");
+
+        // Sehir sayisi event sayisindan azsa hata vermesin diye kontrol
+        int safeCount = Mathf.Min(eventCount, allCities.Length);
+
+        List<CityController> potentialTargets = allCities.OrderBy(x => Random.value).Take(safeCount).ToList();
 
         foreach (var city in potentialTargets)
         {
@@ -82,13 +92,11 @@ public class EventManager : MonoBehaviour
 
             scheduledEvents.Add(newPlan);
 
-            // --- HATA DUZELTİLDİ: Parantez icine alindi ---
             string cityType = city.isProducer ? "Producer" : "Consumer";
             Debug.Log($"<color=grey>SCHEDULED:</color> {newPlan.type} in {city.cityName} ({cityType}) on Day {newPlan.startDayOfMonth}.");
         }
     }
 
-    // --- YENI: MANTIKLI OLAY SECICI ---
     EventType GetValidEventForCity(CityController city)
     {
         if (city.isProducer)
@@ -103,7 +111,6 @@ public class EventManager : MonoBehaviour
         }
     }
 
-    // --- 2. GUNLUK KONTROL ---
     void HandleDailyRoutine()
     {
         int today = TimeManager.Instance.currentDay;
@@ -119,7 +126,7 @@ public class EventManager : MonoBehaviour
             }
         }
 
-        // Suresi bitenleri bitir
+        // Suresi dolanlari bitir
         for (int i = activeEvents.Count - 1; i >= 0; i--)
         {
             var evt = activeEvents[i];
@@ -134,7 +141,6 @@ public class EventManager : MonoBehaviour
         }
     }
 
-    // --- 3. OLAYI ATESLE ---
     void StartEvent(PendingEvent plan)
     {
         if (activeEvents.Exists(x => x.targetCity == plan.targetCity)) return;
@@ -144,7 +150,6 @@ public class EventManager : MonoBehaviour
         newEvent.durationDays = plan.duration;
         newEvent.daysElapsed = 0;
 
-        // Çarpanları Ayarla
         switch (plan.type)
         {
             case EventType.Festival: // ŞEHİR

@@ -9,7 +9,8 @@ public class CityController : MonoBehaviour
     public RegionalBroker assignedBroker;
 
     [Header("Living City Settings")]
-    public bool enablePopulationGrowth = false; // <--- VARSAYILAN KAPALI (Kıtlıkta nüfus ölmesin diye)
+    public bool enablePopulationGrowth = false; // <--- Kıtlıkta nüfuslar taban yapmamasi icin (Varsayilan KAPALI)
+    public bool enableDynamicStorage = false;   // <--- Nufus arttikca depo kapasitesi artsin mi? (Varsayilan KAPALI)
 
     [Header("Event Modifiers (Read Only)")]
     public float consumptionMultiplier = 1.0f; // Normal: 1.0, Festival: 1.5
@@ -18,7 +19,7 @@ public class CityController : MonoBehaviour
     public string activeEventName = ""; // Debug icin: "FESTIVAL", "WAR" vs.
 
     [Range(100, 5000)]
-    public int population = 100; // Varsayilan Nufus
+    public int population = 100; 
     public int minPopulation = 50;
     public int maxPopulation = 5000;
 
@@ -28,6 +29,15 @@ public class CityController : MonoBehaviour
 
     [Header("Feudal System")]
     public CityController sovereignCity;
+    public List<CityController> satelliteVillages = new List<CityController>();
+
+    public void RegisterSatellite(CityController village)
+    {
+        if (!satelliteVillages.Contains(village))
+        {
+            satelliteVillages.Add(village);
+        }
+    }
 
     [System.Serializable]
     public class MarketItem
@@ -40,7 +50,7 @@ public class CityController : MonoBehaviour
 
         [Header("DEBUG INFO (Read Only)")]
         public int currentDynamicPrice;
-        public int lastDailyConsumption; // Debug: Dün kaç tane yendi?
+        public int lastDailyConsumption;
 
         [Header("Production Settings")]
         public int dailyProduction = 15;
@@ -52,7 +62,7 @@ public class CityController : MonoBehaviour
 
     void Start()
     {
-        // Zamanlayıcıya abone ol
+        // timer bagla
         if (TimeManager.Instance != null)
         {
             TimeManager.Instance.OnNewDay += HandleDailyEconomy;
@@ -61,7 +71,6 @@ public class CityController : MonoBehaviour
 
     void OnDestroy()
     {
-        // Abonelikten çık (Hata olmasın)
         if (TimeManager.Instance != null)
         {
             TimeManager.Instance.OnNewDay -= HandleDailyEconomy;
@@ -70,7 +79,7 @@ public class CityController : MonoBehaviour
 
     void Update()
     {
-        // Fiyatları her karede güncelle (Inspector'da görmek için)
+        // her frame fiyat guncellemesi (Debug)
         UpdateDebugPrices();
     }
 
@@ -95,10 +104,22 @@ public class CityController : MonoBehaviour
         {
             MarketItem newItem = new MarketItem();
             newItem.itemData = data;
-            // Üreticiyse biraz stokla başla, değilse boş başla
-            newItem.currentStock = producer ? 50 : 0;
-            // Depo kapasitesi nüfusa göre artsın
-            newItem.maxStock = 200 + (startPop / 10);
+            // --- STOK LIMITLERI (Once limiti belirle) ---
+            if (enableDynamicStorage)
+            {
+                // Dinamik: Nufusa gore (200 + pop/10)
+                newItem.maxStock = 200 + (startPop / 10);
+            }
+            else
+            {
+                // Sabit: Sehir=500, Koy=400 (Uretici=Koy)
+                newItem.maxStock = producer ? 400 : 500;
+            }
+
+            // --- BASLANGIC STOGU (%30 - %50) ---
+            // Her urunden %30-50 arasi stokla baslasin
+            float randomRatio = Random.Range(0.30f, 0.50f);
+            newItem.currentStock = Mathf.RoundToInt(newItem.maxStock * randomRatio);
 
             newItem.dailyProduction = producer ? Random.Range(10, 20) : 0;
 
@@ -181,14 +202,16 @@ public class CityController : MonoBehaviour
         foreach (var item in marketItems)
         {
             // 1. EVENT ETKILI TUKETIM
-            float populationMultiplier = (float)population / 100.0f;
+            // FORMUL: MaxPop/2 nufusta Base consumption kadar tuketsin. MaxPop'ta 2 kati.
+            // Ornek: Pop=2500 (Yarim), Max=5000 -> Ratio=1. Base=25 -> Cons=25. (500 stok 20 gun yeter) = bugday temel alinarak planlandi egitim surecine gore degisiklik yapilabilir
+            float consumptionRatio = (float)population / (maxPopulation / 2.0f);
 
-            // --- BURAYI DEGISTIRDIK: Event Carpanini ekledik ---
-            int baseCons = Mathf.RoundToInt(item.itemData.dailyBaseConsumption * populationMultiplier);
+            // --- Event Carpani eklendi ---
+            int baseCons = Mathf.RoundToInt(item.itemData.dailyBaseConsumption * consumptionRatio);
             int totalConsumption = Mathf.RoundToInt(baseCons * consumptionMultiplier);
 
             if (totalConsumption < 1) totalConsumption = 1;
-            item.lastDailyConsumption = totalConsumption; // Debug ekraninda artisi gorelim
+            item.lastDailyConsumption = totalConsumption; 
 
             if (item.currentStock >= totalConsumption)
             {
@@ -205,7 +228,7 @@ public class CityController : MonoBehaviour
             {
                 if (item.currentStock < item.maxStock * 5)
                 {
-                    // --- BURAYI DEGISTIRDIK: Event Carpanini ekledik ---
+                    // --- Event Carpani eklendi ---
                     int productionAmount = Mathf.RoundToInt(item.dailyProduction * productionMultiplier);
                     item.currentStock += productionAmount;
 
@@ -233,7 +256,6 @@ public class CityController : MonoBehaviour
         if (marketItem != null)
         {
             marketItem.currentStock += amount;
-            // Debug.Log($"{cityName} received {amount} {item.itemName} as TAX.");
         }
     }
 
@@ -244,17 +266,29 @@ public class CityController : MonoBehaviour
 
         if (isHappy)
         {
-            // Her şey yolunda, nüfus artıyor (%5)
+            // nüfus artıs (%5)
             population = Mathf.RoundToInt(population * growthFactor);
         }
         else
         {
-            // Kıtlık var, insanlar terk ediyor (%5)
+            // Kıtlık 
             population = Mathf.RoundToInt(population * decayFactor);
         }
 
         // Sınırlar
         population = Mathf.Clamp(population, minPopulation, maxPopulation);
+
+        //TODO: dynamic storage degisecek populasyon sistemiyle birlikte sonsuz nufus ve sonsuz kapasiteye gidebilir. Aciliyet dusuk baslangicta bu fonksiyon kapali
+
+        // --- YENI: DYNAMIC STORAGE --- 
+        if (enableDynamicStorage)
+        {
+            foreach(var item in marketItems)
+            {
+                // Depo kapasitesi: Temel 200 + (Nüfus / 10)
+                item.maxStock = 200 + (population / 10);
+            }
+        }
     }
 
     public void ApplyEvent(string eventName, float consMult, float prodMult)

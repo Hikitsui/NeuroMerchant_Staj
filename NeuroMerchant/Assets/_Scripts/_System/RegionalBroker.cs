@@ -9,31 +9,40 @@ public class RegionalBroker : MonoBehaviour
     [Header("Information Service")]
     public List<CityController> servicedSettlements;
 
-    // --- YENI: UPGRADE FIYATLARI (Design Doc'tan) ---
     public int tier1Cost = 2500;  // Merchant Wagon (50 Cap)
     public int tier2Cost = 10000; // Trade Caravan (100 Cap)
 
-    // --- SERVICE DATA ---
+
     private List<CityController> clusterCities;
 
     public void InitBroker(List<CityController> assignedCluster)
     {
         clusterCities = assignedCluster;
-        servicedSettlements = assignedCluster;
+        servicedSettlements = new List<CityController>();
+
+        // Tum sehirleri ve uydularini toplu listeye ekle
+        foreach(var city in assignedCluster)
+        {
+            servicedSettlements.Add(city);
+            if (city.satelliteVillages != null)
+            {
+                servicedSettlements.AddRange(city.satelliteVillages);
+            }
+        }
     }
 
     // --- PAKET 1: YEREL PAZAR BILGISI (Cluster Info) ---
     public List<CityController> BuyLocalInfo(MerchantAgent agent)
     {
-        // Cluster icindeki koy ve sehirlerin market verisini dondur
-        Debug.Log($"<color=magenta>BROKER ({brokerName}):</color> Sold LOCAL info to Agent.");
-        return clusterCities;
+        //TODO Sistem manager uzerinde isliyor hangisi daha verimli olacaksa ondan devam edecek suan bos
+        Debug.Log($"<color=magenta>BROKER ({brokerName}):</color> Sold LOCAL info ({servicedSettlements.Count} locations) to Agent.");
+        return servicedSettlements;
     }
 
     // --- PAKET 2: GLOBAL TICARET IPUCU (En Karli Rota) ---
     public string BuyGlobalTradeRoute(MerchantAgent agent)
     {
-        // Basit bir ornek: Rastgele bi tavsiye (Ileride gercek hesap yapilabilir)
+        // ustteki ile ayni
         Debug.Log($"<color=magenta>BROKER ({brokerName}):</color> Sold GLOBAL trade route to Agent.");
         return "Global Market Analysis: Buy Iron in City_3, Sell in Grand_City_1";
     }

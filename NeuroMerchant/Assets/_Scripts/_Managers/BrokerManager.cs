@@ -19,12 +19,11 @@ public class BrokerManager : MonoBehaviour
 
     void Start()
     {
-        // Broker, oyun basinda tum dunyayi tanir (Tanri Modu onda)
+
         allCities = FindObjectsOfType<CityController>();
     }
 
-    // --- PAKET 1: YEREL DEDIKODU (Local Gossip) ---
-    // Ajanin bulundugu yere yakin (Orn: 30 birim) sehirleri dondurur.
+    // --- PAKET 1
     public List<CityController> BuyLocalInfo(MerchantAgent agent)
     {
         if (agent.currentMoney < localInfoCost) return null;
@@ -50,8 +49,7 @@ public class BrokerManager : MonoBehaviour
         return localCities;
     }
 
-    // --- PAKET 2: PIYASA RAPORU (Global Insider) ---
-    // Haritadaki TUM sehirleri dondurur.
+    // --- PAKET 2
     public List<CityController> BuyGlobalInfo(MerchantAgent agent)
     {
         if (agent.currentMoney < globalInfoCost) return null;

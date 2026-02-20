@@ -6,7 +6,10 @@ public class ContractManager : MonoBehaviour
 {
     public static ContractManager Instance;
 
-    // PLANLANMIŞ SÖZLEŞME (Ayın ilerleyen günlerinde çıkacak)
+    [Header("DEVELOPER MODE")]
+    public bool trainingMode = true; // <-- BUNU WORLGENERATOR ILE AYNI YAP
+
+    // PLANLANMIŞ SÖZLEŞME
     [System.Serializable]
     public class PendingContract
     {
@@ -34,7 +37,8 @@ public class ContractManager : MonoBehaviour
     public List<ActiveContract> activeContracts = new List<ActiveContract>();
 
     [Header("Settings")]
-    public int contractsPerMonth = 5; // Ayda 5-6 gorev
+    public int trainingContractCount = 2; 
+    public int productionContractCount = 6; 
 
     private CityController[] allCities;
     private ItemData[] allItems;
@@ -44,7 +48,6 @@ public class ContractManager : MonoBehaviour
     void Start()
     {
         allCities = FindObjectsOfType<CityController>();
-        // Piyasada dönen tüm ürün çeşitlerini bul
         var marketItems = FindObjectsOfType<CityController>().SelectMany(c => c.marketItems).Select(m => m.itemData).Distinct().ToArray();
         allItems = marketItems;
 
@@ -66,26 +69,28 @@ public class ContractManager : MonoBehaviour
         }
     }
 
-    // --- 1. AYLIK İHALE PLANLAMASI ---
     void ScheduleNextMonthContracts()
     {
         scheduledContracts.Clear();
         if (allCities.Length == 0 || allItems.Length == 0) return;
 
-        Debug.Log($"<color=magenta>CONTRACT MANAGER:</color> Drafting {contractsPerMonth} contracts for the new month...");
+        int contractCount = trainingMode ? trainingContractCount : productionContractCount;
+
+        Debug.Log($"<color=magenta>CONTRACT MANAGER:</color> Drafting {contractCount} contracts (Mode: {(trainingMode ? "TRAINING" : "FULL")})...");
 
         var consumers = allCities.Where(c => !c.isProducer).ToList();
         if (consumers.Count == 0) consumers = allCities.ToList();
 
-        for (int i = 0; i < contractsPerMonth; i++)
+        for (int i = 0; i < contractCount; i++)
         {
             PendingContract newPlan = new PendingContract();
             newPlan.targetCity = consumers[Random.Range(0, consumers.Count)];
             newPlan.requiredItem = allItems[Random.Range(0, allItems.Length)];
 
-            newPlan.startDayOfMonth = Random.Range(1, 29); // Ayin rastgele gunu
-            newPlan.durationDays = Random.Range(7, 15);    // 7-14 gun sure
-            newPlan.requiredAmount = Random.Range(20, 101); // 20-100 arasi urun
+            newPlan.startDayOfMonth = Random.Range(1, 29);
+            newPlan.durationDays = Random.Range(7, 15);
+
+            newPlan.requiredAmount = Random.Range(20, 101);
 
             // ODUL HESABI: (BasePrice * Miktar) + %30-%50 Bonus
             float baseValue = newPlan.requiredItem.basePrice * newPlan.requiredAmount;
@@ -97,12 +102,11 @@ public class ContractManager : MonoBehaviour
         }
     }
 
-    // --- 2. GÜNLÜK KONTROLLER ---
     void HandleDailyRoutine()
     {
         int today = TimeManager.Instance.currentDay;
 
-        // A. Baslama zamani gelen ihaleleri atesle
+        // Baslama zamani gelen ihaleler
         for (int i = scheduledContracts.Count - 1; i >= 0; i--)
         {
             var plan = scheduledContracts[i];
@@ -113,7 +117,7 @@ public class ContractManager : MonoBehaviour
             }
         }
 
-        // B. Aktif ihalelerin suresini dusur
+        // Aktif ihalelerin suresini dusur
         for (int i = activeContracts.Count - 1; i >= 0; i--)
         {
             activeContracts[i].daysLeft--;
@@ -138,31 +142,28 @@ public class ContractManager : MonoBehaviour
         Debug.Log($"<color=orange>NEW CONTRACT ACTIVE:</color> {newContract.targetCity.cityName} needs {newContract.requiredAmount}x {newContract.requiredItem.itemName} in {newContract.daysLeft} days! Reward: {newContract.rewardGold} G");
     }
 
-    // --- 3. AJAN İÇİN İHALE KONTROLLERİ ---
 
-    // Ajan satici oldugunda cagirilir: Tek seferde yeterli mal getirdi mi?
     public bool TryCompleteContract(CityController city, ItemData item, int amount, out int reward)
     {
         reward = 0;
         var contract = activeContracts.Find(c => c.targetCity == city && c.requiredItem == item);
 
-        // Eger ajan TEK SEFERDE istenileni getirdiyse gorev basarili!
         if (contract != null && amount >= contract.requiredAmount)
         {
             reward = contract.rewardGold;
-            activeContracts.Remove(contract); // İhaleyi kapat
+            activeContracts.Remove(contract);
             return true;
         }
         return false;
     }
 
-    // Ajan yola cikmadan once cazip mi diye bakar (Tuzakli RL kontrolu)
+    // Ajan yola cikmadan once cazip mi diye bakar
     public int GetPotentialContractReward(CityController city, ItemData item)
     {
         var contract = activeContracts.Find(c => c.targetCity == city && c.requiredItem == item);
         if (contract != null)
         {
-            return contract.rewardGold; // Kapasitesi yetmese bile odulu gorsun, giderse husrana ugrasin!
+            return contract.rewardGold;
         }
         return -1;
     }
