@@ -1,0 +1,42 @@
+{
+    "name": "root",
+    "metadata": {
+        "timer_format_version": "0.1.0",
+        "start_time_seconds": "1771604164",
+        "python_version": "3.10.8 | packaged by conda-forge | (main, Nov 24 2022, 14:07:00) [MSC v.1916 64 bit (AMD64)]",
+        "command_line_arguments": "C:\\Users\\cagat\\miniconda3\\envs\\mlclean\\Scripts\\mlagents-learn config.yaml --run-id=MerchantTest",
+        "mlagents_version": "0.30.0",
+        "mlagents_envs_version": "0.28.0",
+        "communication_protocol_version": "1.5.0",
+        "pytorch_version": "2.7.1+cu118",
+        "numpy_version": "1.23.5",
+        "end_time_seconds": "1771604236"
+    },
+    "total": 71.30042080000021,
+    "count": 1,
+    "self": 0.010601899999528541,
+    "children": {
+        "run_training.setup": {
+            "total": 0.10818569999901229,
+            "count": 1,
+            "self": 0.10818569999901229
+        },
+        "TrainerController.start_learning": {
+            "total": 71.18163320000167,
+            "count": 1,
+            "self": 0.00016760000107751694,
+            "children": {
+                "TrainerController._reset_env": {
+                    "total": 71.18144870000106,
+                    "count": 1,
+                    "self": 71.18144870000106
+                },
+                "TrainerController._save_models": {
+                    "total": 1.6899999536690302e-05,
+                    "count": 1,
+                    "self": 1.6899999536690302e-05
+                }
+            }
+        }
+    }
+}

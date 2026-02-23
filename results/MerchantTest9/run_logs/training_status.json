@@ -1,0 +1,29 @@
+{
+    "MerchantAgent": {
+        "checkpoints": [
+            {
+                "steps": 311256,
+                "file_path": "results\\MerchantTest9\\MerchantAgent\\MerchantAgent-311256.onnx",
+                "reward": 0.8200000058859587,
+                "creation_time": 1771854577.064398,
+                "auxillary_file_paths": [
+                    "results\\MerchantTest9\\MerchantAgent\\MerchantAgent-311256.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 311256,
+            "file_path": "results\\MerchantTest9\\MerchantAgent.onnx",
+            "reward": 0.8200000058859587,
+            "creation_time": 1771854577.064398,
+            "auxillary_file_paths": [
+                "results\\MerchantTest9\\MerchantAgent\\MerchantAgent-311256.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.30.0",
+        "torch_version": "2.7.1+cu118"
+    }
+}

@@ -529,12 +529,12 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 269642983}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2149870c3bac26f429830ec7771ea860, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  trainingMode: 0
+  trainingMode: 1
   scheduledContracts: []
   activeContracts: []
   trainingContractCount: 2
@@ -552,10 +552,12 @@ GameObject:
   - component: {fileID: 360056958}
   - component: {fileID: 360056957}
   - component: {fileID: 360056956}
-  - component: {fileID: 360056955}
   - component: {fileID: 360056960}
+  - component: {fileID: 360056955}
+  - component: {fileID: 360056962}
+  - component: {fileID: 360056961}
   m_Layer: 0
-  m_Name: Merchant_SM_Agent
+  m_Name: Merchant_ML_Agent
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -588,18 +590,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 397b14e0caf46d840abb4340f6eade9c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentState: 0
-  targetCityName: 
-  navAgent: {fileID: 0}
+  agentParameters:
+    maxStep: 0
+  hasUpgradedFromAgentParameters: 1
+  MaxStep: 5000
+  navAgent: {fileID: 360056956}
   currentMoney: 40
-  currentTier: 0
+  startingMoney: 1000
   maxCapacity: 20
-  maintenanceCostPerUnit: 2
-  baseDailyCost: 10
   carriedItemData: {fileID: 0}
   carriedAmount: 0
-  lastCargoCost: 0
-  knownSettlements: []
+  targetTrainingItem: {fileID: 11400000, guid: 95111b808d909214ca91c4f53e4191fb, type: 2}
+  maxStepsPerEpisode: 5000
 --- !u!195 &360056956
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -722,6 +724,50 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &360056961
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 360056953}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a5c9d521e5ef4759a8246a07d52221e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  DecisionPeriod: 5
+  TakeActionsBetweenDecisions: 1
+--- !u!114 &360056962
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 360056953}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d1c4e0b1822b495aa52bc52839ecb30, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_BrainParameters:
+    VectorObservationSize: 39
+    NumStackedVectorObservations: 1
+    m_ActionSpec:
+      m_NumContinuousActions: 0
+      BranchSizes: 09000000
+    VectorActionSize: 09000000
+    VectorActionDescriptions: []
+    VectorActionSpaceType: 0
+    hasUpgradedBrainParametersWithActionSpec: 1
+  m_Model: {fileID: 0}
+  m_InferenceDevice: 1
+  m_BehaviorType: 0
+  m_BehaviorName: MerchantAgent
+  TeamId: 0
+  m_UseChildSensors: 1
+  m_UseChildActuators: 1
+  m_ObservableAttributeHandling: 0
 --- !u!1 &443342846
 GameObject:
   m_ObjectHideFlags: 0
@@ -1163,7 +1209,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 684513cf28693b64b9e8e21771546b9f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  trainingMode: 0
+  trainingMode: 1
   enablePopulationDynamics: 0
   cityPrefab: {fileID: 3463479049785691117, guid: 9fecde173d7471446bc12f6f54c7f678, type: 3}
   villagePrefab: {fileID: 2187985126549753303, guid: 69f7f4d577cc41f4db8539e4854f1296, type: 3}
@@ -1362,12 +1408,12 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1936633331}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b1cd15daa1891024092779284f9b402b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  trainingMode: 0
+  trainingMode: 1
   scheduledEvents: []
   activeEvents: []
   trainingEventsCount: 2

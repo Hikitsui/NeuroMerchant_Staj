@@ -31,6 +31,10 @@ public class CityController : MonoBehaviour
     public CityController sovereignCity;
     public List<CityController> satelliteVillages = new List<CityController>();
 
+    // --- ML-AGENTS ICIN EKLEME: RESETLEME ---
+    private int startStockBuffer; // Baslangic stogunu hafizada tutmak icin
+    private int startPopBuffer;
+
     public void RegisterSatellite(CityController village)
     {
         if (!satelliteVillages.Contains(village))
@@ -303,5 +307,19 @@ public class CityController : MonoBehaviour
         activeEventName = "";
         consumptionMultiplier = 1.0f;
         productionMultiplier = 1.0f;
+    }
+
+    // startStockBuffer = marketItems[0].currentStock; (Bunu tum itemler icin yapacak basit bir yapi lazim)
+    // startPopBuffer = population;
+    public void ResetCity()
+    {
+        population = 100; // Veya baslangic degeri neyse
+        ClearEvent(); // Aktif olaylari sil
+
+        foreach (var item in marketItems)
+        {
+            // Stoklari varsayilan (orta) seviyeye cek
+            item.currentStock = item.maxStock / 2;
+        }
     }
 }
