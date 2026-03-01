@@ -124,6 +124,7 @@ MonoBehaviour:
   isProducer: 1
   assignedBroker: {fileID: 0}
   enablePopulationGrowth: 0
+  enableDynamicStorage: 0
   consumptionMultiplier: 1
   productionMultiplier: 1
   activeEventName: 
@@ -131,11 +132,12 @@ MonoBehaviour:
   minPopulation: 50
   maxPopulation: 5000
   sovereignCity: {fileID: 0}
+  satelliteVillages: []
   marketItems:
   - itemData: {fileID: 11400000, guid: 95111b808d909214ca91c4f53e4191fb, type: 2}
     currentStock: 20
     maxStock: 50
     currentDynamicPrice: 0
     lastDailyConsumption: 0
-    dailyProduction: 20
-    dailyTax: 10
+    dailyProduction: 40
+    dailyTax: 30

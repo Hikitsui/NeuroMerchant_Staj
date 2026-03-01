@@ -11,6 +11,7 @@ public class CityController : MonoBehaviour
     [Header("Living City Settings")]
     public bool enablePopulationGrowth = false; // <--- Kıtlıkta nüfuslar taban yapmamasi icin (Varsayilan KAPALI)
     public bool enableDynamicStorage = false;   // <--- Nufus arttikca depo kapasitesi artsin mi? (Varsayilan KAPALI)
+    public bool enableSaturation = false; // <--- Bu satırı ekle
 
     [Header("Event Modifiers (Read Only)")]
     public float consumptionMultiplier = 1.0f; // Normal: 1.0, Festival: 1.5

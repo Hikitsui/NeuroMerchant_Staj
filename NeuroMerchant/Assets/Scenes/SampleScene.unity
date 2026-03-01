@@ -421,7 +421,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   localInfoCost: 50
-  globalInfoCost: 200
+  globalInfoCostRatio: 0.05
+  globalInfoMinCost: 200
+  tier1Cost: 2500
+  tier2Cost: 10000
 --- !u!1 &190669001
 GameObject:
   m_ObjectHideFlags: 0
@@ -594,14 +597,19 @@ MonoBehaviour:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
   MaxStep: 5000
-  navAgent: {fileID: 360056956}
   currentMoney: 40
   startingMoney: 1000
+  currentTier: 0
   maxCapacity: 20
   carriedItemData: {fileID: 0}
   carriedAmount: 0
-  targetTrainingItem: {fileID: 11400000, guid: 95111b808d909214ca91c4f53e4191fb, type: 2}
+  itemWheat: {fileID: 11400000, guid: 95111b808d909214ca91c4f53e4191fb, type: 2}
+  itemIron: {fileID: 11400000, guid: 517b3e3cbff13f949af5be860a8d9eef, type: 2}
+  itemCoal: {fileID: 11400000, guid: 8abcdd9c8feba2c40ba7bd02088fae73, type: 2}
+  itemCotton: {fileID: 11400000, guid: 57aaebaa99bd1db44ae8dc917d7c7e77, type: 2}
   maxStepsPerEpisode: 5000
+  curriculumManager: {fileID: 1457905380}
+  currentLesson: 0
 --- !u!195 &360056956
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -751,12 +759,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 39
+    VectorObservationSize: 281
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 0
-      BranchSizes: 09000000
-    VectorActionSize: 09000000
+      BranchSizes: 32000000050000000500000005000000
+    VectorActionSize: 32000000050000000500000005000000
     VectorActionDescriptions: []
     VectorActionSpaceType: 0
     hasUpgradedBrainParametersWithActionSpec: 1
@@ -812,7 +820,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 73508082deaafcf489a485ea9e2c3909, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  realSecondsPerGameDay: 10
+  realSecondsPerGameDay: 15
   currentDay: 1
   currentMonth: 1
   currentYear: 1
@@ -942,6 +950,38 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
+--- !u!1 &852485263
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 852485264}
+  m_Layer: 0
+  m_Name: ---Curriculum---
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &852485264
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 852485263}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -2.8100014, y: -9.262764, z: -22.005169}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1457905379}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &963194225
 GameObject:
   m_ObjectHideFlags: 0
@@ -1230,6 +1270,56 @@ MonoBehaviour:
   itemTools: {fileID: 11400000, guid: 7587c5be245580c4998565c317b6c197, type: 2}
   itemSpices: {fileID: 11400000, guid: e07639cae32aa144392cad0bc7ec0c11, type: 2}
   itemJewelry: {fileID: 11400000, guid: 26e1a0afe115b314895f7ad1646c6097, type: 2}
+--- !u!1 &1457905378
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1457905379}
+  - component: {fileID: 1457905380}
+  m_Layer: 0
+  m_Name: Curriculum Manager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1457905379
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1457905378}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 852485264}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1457905380
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1457905378}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cbd39a754bca9004b8631fcbacf11bef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  merchantAgent: {fileID: 360056955}
+  levelDownThreshold: -0.4
+  currentLesson: 0
+  lastWindowAvg: 0
+  windowCountInLesson: 0
+  currentUpThreshold: 0.8
 --- !u!4 &1578542428 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2735955558618409765, guid: 3305fc2684edd6c47b54162dcf7a6fe4, type: 3}
@@ -1566,6 +1656,7 @@ SceneRoots:
   m_Roots:
   - {fileID: 963194228}
   - {fileID: 705507995}
+  - {fileID: 852485264}
   - {fileID: 1339293427}
   - {fileID: 559283598}
   - {fileID: 1111096120}

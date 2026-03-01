@@ -1,0 +1,56 @@
+{
+    "MerchantAgent": {
+        "checkpoints": [
+            {
+                "steps": 499512,
+                "file_path": "results\\NeuroMerchant_V4\\MerchantAgent\\MerchantAgent-499512.onnx",
+                "reward": 0.31642857460039003,
+                "creation_time": 1772209016.9002256,
+                "auxillary_file_paths": [
+                    "results\\NeuroMerchant_V4\\MerchantAgent\\MerchantAgent-499512.pt"
+                ]
+            },
+            {
+                "steps": 782000,
+                "file_path": "results\\NeuroMerchant_V4\\MerchantAgent\\MerchantAgent-782000.onnx",
+                "reward": 0.4086666616300742,
+                "creation_time": 1772212406.212079,
+                "auxillary_file_paths": [
+                    "results\\NeuroMerchant_V4\\MerchantAgent\\MerchantAgent-782000.pt"
+                ]
+            },
+            {
+                "steps": 999512,
+                "file_path": "results\\NeuroMerchant_V4\\MerchantAgent\\MerchantAgent-999512.onnx",
+                "reward": 0.5071666743606329,
+                "creation_time": 1772388524.7644026,
+                "auxillary_file_paths": [
+                    "results\\NeuroMerchant_V4\\MerchantAgent\\MerchantAgent-999512.pt"
+                ]
+            },
+            {
+                "steps": 1137065,
+                "file_path": "results\\NeuroMerchant_V4\\MerchantAgent\\MerchantAgent-1137065.onnx",
+                "reward": 0.4141428590353046,
+                "creation_time": 1772390211.9391947,
+                "auxillary_file_paths": [
+                    "results\\NeuroMerchant_V4\\MerchantAgent\\MerchantAgent-1137065.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 1137065,
+            "file_path": "results\\NeuroMerchant_V4\\MerchantAgent.onnx",
+            "reward": 0.4141428590353046,
+            "creation_time": 1772390211.9391947,
+            "auxillary_file_paths": [
+                "results\\NeuroMerchant_V4\\MerchantAgent\\MerchantAgent-1137065.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.30.0",
+        "torch_version": "2.7.1+cu118"
+    }
+}
