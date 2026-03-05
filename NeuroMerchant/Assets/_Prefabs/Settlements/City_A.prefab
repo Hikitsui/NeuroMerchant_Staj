@@ -120,8 +120,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cityName: City_A
   isProducer: 0
-  assignedBroker: {fileID: 0}
+  assignedBroker:
+    brokerName: 
+    position: {x: 0, y: 0, z: 0}
+    cities: []
+    villages: []
+    bestBuyCity: {fileID: 0}
+    bestSellCity: {fileID: 0}
+    bestItem: {fileID: 0}
+    bestProfit: 0
+    lastUpdateTime: 0
   enablePopulationGrowth: 0
+  enableDynamicStorage: 1
+  enableSaturation: 0
   consumptionMultiplier: 1
   productionMultiplier: 1
   activeEventName: 
@@ -129,6 +140,7 @@ MonoBehaviour:
   minPopulation: 100
   maxPopulation: 500
   sovereignCity: {fileID: 0}
+  satelliteVillages: []
   marketItems:
   - itemData: {fileID: 11400000, guid: 8abcdd9c8feba2c40ba7bd02088fae73, type: 2}
     currentStock: 50

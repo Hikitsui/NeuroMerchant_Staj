@@ -40,7 +40,7 @@ public class MerchantAgent : Agent
     // ----------------------------------------------------------
     [Header("Ekonomi")]
     public float currentMoney = 1000f;
-    public float startingMoney = 1000f;
+    public float startingMoney = 2000f;
 
     [Header("Kapasite Sistemi")]
     public int currentTier = 0;
@@ -52,6 +52,7 @@ public class MerchantAgent : Agent
     public int carriedAmount;
     private float lastCargoCost;
     private CityController lastBuyCity;
+    private CityController lastSellCity;
 
     [Header("Training — Ürün Listesi (Ders sırasına göre)")]
     public ItemData itemWheat;    // Ders 0+
@@ -78,8 +79,8 @@ public class MerchantAgent : Agent
     // Ders bazlı özellik açılım eşikleri (Yol Haritası tablosundan)
     private const int LESSON_VILLAGES = 1; // Köyler açılır
     private const int LESSON_SATURATION = 2; // Doygunluk aktif
-    private const int LESSON_SELL_BRANCH = 2; // Satış miktarı branch
-    private const int LESSON_BUY_BRANCH = 1; // Alım miktarı branch
+    private const int LESSON_SELL_BRANCH = 3; // Satış miktarı branch
+    private const int LESSON_BUY_BRANCH = 3; // Alım miktarı branch
     private const int LESSON_MULTI_PRODUCT = 3; // 4 ürün
     private const int LESSON_FOG_OF_WAR = 4; // Hafıza yaşı gerçek
     private const int LESSON_BROKER_BRANCH = 5; // Broker branch aktif
@@ -94,13 +95,22 @@ public class MerchantAgent : Agent
     // ----------------------------------------------------------
     private bool boughtLocalInfo = false;
     private bool boughtGlobalInfo = false;
-    private List<RegionalBroker> allBrokers;
+    // allBrokers artık BrokerManager.Instance.brokers üzerinden erişiliyor
 
     // ----------------------------------------------------------
     // CURRICULUM
     // ----------------------------------------------------------
     [HideInInspector] public int currentLesson = 0;
-    private static readonly int[] LessonSettlementCount = { 4, 9, 9, 14, 20, 27, 45, 45 };
+    // Ders başına aktif yerleşke sayısı
+    // Ders 0: 4  (Broker_1 şehirleri)
+    // Ders 1: 9  (Broker_1 tam cluster)
+    // Ders 2: 9  (aynı, doygunluk aktif)
+    // Ders 3: 14 (+ Broker_2 şehirleri 4 + 1 köy)
+    // Ders 4: 18 (Broker_2 tam cluster)
+    // Ders 5: 27 (+ Broker_3 tam cluster, broker branch aktif)
+    // Ders 6: 45 (tüm harita)
+    // Ders 7: 45 (aynı, event+kontrat aktif)
+    private static readonly int[] LessonSettlementCount = { 4, 9, 9, 14, 18, 27, 45, 45 };
 
     // Step bazlı raporlama
     private float episodeCumulativeReward = 0f;
@@ -108,7 +118,9 @@ public class MerchantAgent : Agent
     private int lastReportedStep = 0;
     private float stepWindowReward = 0f;
     private int stepWindowEpisodes = 0;
-    private const int STEP_WINDOW = 5000;
+    private const int STEP_WINDOW = 50000;
+    private const int WARMUP_STEPS = 10;   // Episode başında bekleme adımı
+    private int warmupStepCount = 0;
 
     // ----------------------------------------------------------
     // HAFIZA
@@ -135,15 +147,37 @@ public class MerchantAgent : Agent
     {
         navAgent = GetComponent<NavMeshAgent>();
 
-        allSettlements = FindObjectsOfType<CityController>()
-            .Where(c => !c.name.Contains("Guild") && !c.name.Contains("Broker"))
-            .OrderBy(c => c.isProducer)
-            .ThenBy(c => c.name)
-            .ToList();
+        // CurriculumManager'dan kaydedilmiş dersi al
+        if (curriculumManager != null)
+            currentLesson = curriculumManager.currentLesson;
 
-        allBrokers = FindObjectsOfType<RegionalBroker>()
-            .OrderBy(b => b.name)
-            .ToList();
+        // allSettlements'i BrokerManager cluster sırasına göre doldur
+        // Her broker: önce şehirler (isProducer=false), sonra köyler (isProducer=true)
+        // Ders 0: index 0-3 = Broker_1 şehirleri (birbirine yakın)
+        // Ders 1: index 4-8 = Broker_1 köyleri de aktif
+        // Ders 2+: sonraki broker cluster'ları eklenir
+        allSettlements = new List<CityController>();
+        if (BrokerManager.Instance != null && BrokerManager.Instance.brokers.Count > 0)
+        {
+            foreach (var broker in BrokerManager.Instance.brokers)
+            {
+                foreach (var city in broker.cities)
+                    if (city != null && !allSettlements.Contains(city))
+                        allSettlements.Add(city);
+                foreach (var village in broker.villages)
+                    if (village != null && !allSettlements.Contains(village))
+                        allSettlements.Add(village);
+            }
+            Debug.Log($"[Agent] allSettlements BrokerManager'dan yüklendi: {allSettlements.Count} yerleşke");
+        }
+        else
+        {
+            // Fallback
+            allSettlements = FindObjectsOfType<CityController>()
+                .Where(c => !c.name.Contains("Guild") && !c.name.Contains("Broker"))
+                .OrderBy(c => c.isProducer).ThenBy(c => c.name).ToList();
+            Debug.LogWarning("[Agent] BrokerManager bulunamadı, fallback kullanılıyor!");
+        }
 
         for (int i = 0; i < MAX_SETTLEMENTS; i++)
             memoryMap[i] = new SettlementMemory();
@@ -175,6 +209,7 @@ public class MerchantAgent : Agent
         carriedItemData = null;
         lastCargoCost = 0f;
         lastBuyCity = null;
+        lastSellCity = null;
         isMoving = false;
         currentDestination = null;
         episodeCumulativeReward = 0f;
@@ -185,13 +220,17 @@ public class MerchantAgent : Agent
         pendingBrokerAction = 0;
         pendingBuyAmountIndex = 4;
         pendingSellAmountIndex = 4;
+        warmupStepCount = 0;
 
         if (navAgent != null && navAgent.isOnNavMesh) navAgent.ResetPath();
 
+        // Başlangıçta aktif şehirlerden birine yerleş (köy değil)
         int active = ActiveSettlementCount();
-        int rnd = Random.Range(0, Mathf.Max(1, Mathf.Min(active, allSettlements.Count)));
-        if (allSettlements.Count > 0)
-            transform.position = allSettlements[rnd].transform.position;
+        var startCities = allSettlements.Take(active).Where(s => !s.isProducer).ToList();
+        if (startCities.Count > 0)
+            transform.position = startCities[Random.Range(0, startCities.Count)].transform.position;
+        else if (allSettlements.Count > 0)
+            transform.position = allSettlements[0].transform.position;
 
         foreach (var s in allSettlements) s.ResetCity();
 
@@ -310,13 +349,13 @@ public class MerchantAgent : Agent
         // ---- BLOK D: BROKER GÖZLEMLERİ (5 × 5 = 25) ----
         for (int i = 0; i < MAX_BROKERS; i++)
         {
-            if (i < allBrokers.Count && BrokerManager.Instance != null)
+            if (BrokerManager.Instance != null && i < BrokerManager.Instance.brokers.Count)
             {
-                RegionalBroker b = allBrokers[i];
-                float dist = Vector3.Distance(transform.position, b.transform.position);
+                RegionalBroker b = BrokerManager.Instance.brokers[i];
+                float dist = Vector3.Distance(transform.position, b.position);
                 sensor.AddObservation(dist / 500f);
                 sensor.AddObservation(!boughtLocalInfo && currentMoney >= BrokerManager.Instance.GetLocalInfoCost() ? 1f : 0f);
-                sensor.AddObservation(!boughtGlobalInfo && currentMoney >= BrokerManager.Instance.GetGlobalInfoCost(currentMoney) ? 1f : 0f);
+                sensor.AddObservation(!boughtGlobalInfo && currentMoney >= BrokerManager.Instance.GetGlobalInfoCost() ? 1f : 0f);
                 sensor.AddObservation(currentTier < 1 && currentMoney >= BrokerManager.Instance.GetTierCost(1) ? 1f : 0f);
                 sensor.AddObservation(currentTier < 2 && currentMoney >= BrokerManager.Instance.GetTierCost(2) ? 1f : 0f);
             }
@@ -336,10 +375,16 @@ public class MerchantAgent : Agent
     {
         if (StepCount >= maxStepsPerEpisode)
         {
-            if (carriedAmount > 0) AddReward(-0.1f);
+            // Episode bitti, elindeki mal için küçük ceza
+            if (carriedAmount > 0) AddReward(-0.01f);
+            Debug.Log($"<color=orange>[MAXSTEP]</color> Episode bitti | Para:{currentMoney:F0}G | Ders:{currentLesson}");
             EndEpisode();
             return;
         }
+
+        // Warmup: episode başında N adım bekle (reset yerleşmesi için)
+        warmupStepCount++;
+        if (warmupStepCount <= WARMUP_STEPS) return;
 
         // Her adımda global sayacı artır ve curriculum penceresi dolu mu kontrol et
         globalStepCount++;
@@ -354,12 +399,33 @@ public class MerchantAgent : Agent
             Debug.Log($"[Curriculum] Pencere raporlandı | Step:{globalStepCount} | Ort:{avg:F3} | Ders:{currentLesson}");
         }
 
+        // Ders 0-3: Tüm aktif yerleşkelerin bilgisi her adımda güncellenir (omniscient)
+        // Ders 4+: Sadece ziyarette güncellenir (fog of war)
+        if (currentLesson < LESSON_FOG_OF_WAR)
+        {
+            int active = ActiveSettlementCount();
+            for (int i = 0; i < active && i < allSettlements.Count; i++)
+            {
+                var s = allSettlements[i];
+                var item = s.marketItems.Find(x => x.itemData == (carriedItemData ?? itemWheat));
+                float price = (item != null) ? s.GetPrice(item.itemData) : 0f;
+                float stock = (item != null && item.maxStock > 0)
+                    ? (float)item.currentStock / item.maxStock : 0f;
+                memoryMap[i].UpdateAlwaysFresh(price, stock);
+            }
+        }
+
         if (isMoving)
         {
             if (!navAgent.pathPending && navAgent.hasPath && navAgent.remainingDistance <= 2.0f)
             {
                 isMoving = false;
                 HandleArrivalInteraction();
+            }
+            else
+            {
+                // Yolda geçen her adım için çok küçük zaman cezası
+                AddReward(-0.00005f);
             }
             return;
         }
@@ -388,7 +454,7 @@ public class MerchantAgent : Agent
 
         if (carriedAmount > 0 && target == lastBuyCity)
         {
-            AddReward(-0.3f);
+            AddReward(-0.05f);
             CityController best = GetBestSellCity();
             if (best != null)
             {
@@ -461,7 +527,7 @@ public class MerchantAgent : Agent
         // ===== SATIŞ =====
         else
         {
-            if (currentDestination == lastBuyCity) { AddReward(-0.5f); return; }
+            if (currentDestination == lastBuyCity) { AddReward(-0.05f); return; }
 
             var targetItem = currentDestination.marketItems.Find(x => x.itemData == carriedItemData);
             if (targetItem != null)
@@ -492,14 +558,33 @@ public class MerchantAgent : Agent
                     carriedAmount = 0;
                     carriedItemData = null;
                     lastCargoCost = 0f;
+                    lastSellCity = currentDestination;
                     lastBuyCity = null;
                 }
+                return; // Satış yapıldı, aynı varışta alım yapma
             }
             else AddReward(-0.001f);
         }
 
-        if (currentMoney <= 0) { AddReward(-1f); EndEpisode(); }
-        if (currentMoney >= 5000f) { AddReward(2f); EndEpisode(); }
+        if (currentMoney <= 0)
+        {
+            // İflas — büyük ceza, para sıfırla ve devam et
+            Debug.LogWarning($"<color=red>[IFLAS]</color> Para bitti! Son alım: {lastBuyCity?.cityName} | Mal: {carriedAmount}x {carriedItemData?.itemName}");
+            AddReward(-1f);
+            currentMoney = startingMoney;
+            carriedAmount = 0;
+            carriedItemData = null;
+            lastBuyCity = null;
+            lastSellCity = null;
+        }
+        // Hedef para: ders ilerledikçe artar
+        float moneyGoal = 3000f + currentLesson * 1000f;
+        if (currentMoney >= moneyGoal)
+        {
+            Debug.Log($"<color=yellow>[HEDEF]</color> {currentMoney:F0}G ≥ {moneyGoal:F0}G | Ders:{currentLesson}");
+            AddReward(2f);
+            EndEpisode();
+        }
     }
 
     // ==========================================================
@@ -509,16 +594,8 @@ public class MerchantAgent : Agent
     {
         if (BrokerManager.Instance == null) return;
 
-        // Ders 5'ten önce: yakında broker varsa otomatik local al
-        if (currentLesson < LESSON_BROKER_BRANCH)
-        {
-            if (!boughtLocalInfo && currentMoney >= BrokerManager.Instance.GetLocalInfoCost())
-            {
-                RegionalBroker near = GetNearestBroker(30f);
-                if (near != null) ExecuteBuyLocalInfo();
-            }
-            return;
-        }
+        // Ders 5'ten önce broker kullanılmaz
+        if (currentLesson < LESSON_BROKER_BRANCH) return;
 
         switch (pendingBrokerAction)
         {
@@ -530,12 +607,13 @@ public class MerchantAgent : Agent
                 break;
 
             case 2:
-                int gCost = BrokerManager.Instance.GetGlobalInfoCost(currentMoney);
+                int gCost = BrokerManager.Instance.GetGlobalInfoCost();
                 if (!boughtGlobalInfo && currentMoney >= gCost)
                 {
                     currentMoney -= gCost;
                     boughtGlobalInfo = true;
-                    var gList = BrokerManager.Instance.GetGlobalInfo();
+                    var gList = BrokerManager.Instance.brokers
+                        .SelectMany(b => b.AllSettlements).Distinct().ToList();
                     foreach (var s in gList)
                     {
                         int i = allSettlements.IndexOf(s);
@@ -607,23 +685,35 @@ public class MerchantAgent : Agent
     // ==========================================================
 
     // Derse göre aktif ürün listesi
+    // Ders 0-2: sadece Wheat (tek ürün, basit öğrenme)
+    // Ders 3-5: Wheat + Iron + Coal + Cotton (4 ürün)
+    // Ders 6-7: tüm 12 ürün
     List<ItemData> GetActiveItems()
     {
-        var items = new List<ItemData>();
-        if (itemWheat != null) items.Add(itemWheat);
+        var items = BrokerManager.Instance?.activeItems;
+        if (items == null || items.Count == 0) return new List<ItemData>();
+
+        if (currentLesson >= LESSON_FULL_MAP)
+            return items; // 12 ürün
+
         if (currentLesson >= LESSON_MULTI_PRODUCT)
         {
-            if (itemIron != null) items.Add(itemIron);
-            if (itemCoal != null) items.Add(itemCoal);
-            if (itemCotton != null) items.Add(itemCotton);
+            // 4 temel ürün: Wheat, Iron, Coal, Cotton
+            return items.Where(i => i == itemWheat || i == itemIron ||
+                                    i == itemCoal || i == itemCotton).ToList();
         }
-        // Ders 6'da tüm ürünler WorldGenerator tarafından açık zaten
-        return items;
+
+        // Ders 0-2: sadece Wheat
+        return items.Where(i => i == itemWheat).ToList();
     }
 
-    // Varış şehrinde alınabilecek en iyi ürünü döner
+    // Varış yerleşkesinde alınabilecek en ucuz ürünü döner
+    // Koy mu şehir mi fark etmez — stok varsa ve ucuzsa al
     ItemData GetBestAvailableItem(CityController city)
     {
+        // Son satış yaptığın şehirden hemen alım yapma
+        if (city == lastSellCity) return null;
+
         var items = GetActiveItems();
         ItemData best = null;
         int bestStock = 0;
@@ -689,7 +779,7 @@ public class MerchantAgent : Agent
         for (int i = 0; i < active && i < allSettlements.Count; i++)
         {
             var city = allSettlements[i];
-            if (city == lastBuyCity) continue;
+            if (city == lastBuyCity) continue; // Aldığın yerden satma
             var item = city.marketItems.Find(x => x.itemData == carriedItemData);
             if (item == null) continue;
             int val = city.GetBulkSellValue(carriedItemData, carriedAmount);
@@ -700,11 +790,12 @@ public class MerchantAgent : Agent
 
     RegionalBroker GetNearestBroker(float maxDist)
     {
+        if (BrokerManager.Instance == null) return null;
         RegionalBroker nearest = null;
         float minDist = maxDist;
-        foreach (var b in allBrokers)
+        foreach (var b in BrokerManager.Instance.brokers)
         {
-            float d = Vector3.Distance(transform.position, b.transform.position);
+            float d = Vector3.Distance(transform.position, b.position);
             if (d < minDist) { minDist = d; nearest = b; }
         }
         return nearest;

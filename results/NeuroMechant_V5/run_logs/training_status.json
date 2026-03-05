@@ -1,0 +1,38 @@
+{
+    "MerchantAgent": {
+        "checkpoints": [
+            {
+                "steps": 39999,
+                "file_path": "results\\NeuroMechant_V5\\MerchantAgent\\MerchantAgent-39999.onnx",
+                "reward": -0.0014650203287601472,
+                "creation_time": 1772732497.4986827,
+                "auxillary_file_paths": [
+                    "results\\NeuroMechant_V5\\MerchantAgent\\MerchantAgent-39999.pt"
+                ]
+            },
+            {
+                "steps": 83999,
+                "file_path": "results\\NeuroMechant_V5\\MerchantAgent\\MerchantAgent-83999.onnx",
+                "reward": 0.2604000195860863,
+                "creation_time": 1772733207.2565184,
+                "auxillary_file_paths": [
+                    "results\\NeuroMechant_V5\\MerchantAgent\\MerchantAgent-83999.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 83999,
+            "file_path": "results\\NeuroMechant_V5\\MerchantAgent.onnx",
+            "reward": 0.2604000195860863,
+            "creation_time": 1772733207.2565184,
+            "auxillary_file_paths": [
+                "results\\NeuroMechant_V5\\MerchantAgent\\MerchantAgent-83999.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.30.0",
+        "torch_version": "2.7.1+cu118"
+    }
+}

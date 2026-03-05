@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -25,6 +26,13 @@ public class CurriculumManager : MonoBehaviour
 {
     [Header("Referans")]
     public MerchantAgent merchantAgent;
+
+    [Header("Run Kimliği")]
+    [Tooltip("config.yaml --run-id ile aynı olmalı (örn: NeuroMerchant_V4)")]
+    public string runId = "NeuroMerchant_V4";
+
+    // Ders kaydı run_id'ye göre ayrı dosyaya
+    private string SavePath => System.IO.Path.Combine(Application.dataPath, "..", $"curriculum_{runId}.txt");
 
     [Header("Ders Geçiş Eşikleri (Yol Haritası)")]
     // Index = mevcut ders, değer = o dersten bir üste geçiş eşiği
@@ -57,6 +65,38 @@ public class CurriculumManager : MonoBehaviour
     // avg          : O penceredeki episode'ların ort. kümülatif ödülü
     // reportedLesson: Raporlama anındaki ders
     // ==========================================================
+    private void Awake()
+    {
+        LoadLesson();
+    }
+
+    // ==========================================================
+    // KAYDET / YÜKLE
+    // ==========================================================
+    private void SaveLesson()
+    {
+        File.WriteAllText(SavePath, currentLesson.ToString());
+        Debug.Log($"[Curriculum] Ders kaydedildi: {currentLesson} → {SavePath}");
+    }
+
+    private void LoadLesson()
+    {
+        if (File.Exists(SavePath))
+        {
+            string txt = File.ReadAllText(SavePath).Trim();
+            if (int.TryParse(txt, out int saved))
+            {
+                currentLesson = saved;
+                currentUpThreshold = LevelUpThresholds[Mathf.Clamp(currentLesson, 0, 7)];
+                Debug.Log($"<color=cyan>[Curriculum] Ders yüklendi: {currentLesson}</color>");
+            }
+        }
+        else
+        {
+            Debug.Log("[Curriculum] Kayıt bulunamadı, Ders 0'dan başlanıyor.");
+        }
+    }
+
     public void ReportStepWindow(float avg, int reportedLesson)
     {
         // Farklı dersten gelen gecikmeli raporu yoksay
@@ -68,10 +108,15 @@ public class CurriculumManager : MonoBehaviour
         }
 
         lessonWindowAverages.Add(avg);
+        // Son 10 pencereyi tut, eskisini at (kayan pencere)
+        if (lessonWindowAverages.Count > 10)
+            lessonWindowAverages.RemoveAt(0);
+
         windowCountInLesson = lessonWindowAverages.Count;
         lastWindowAvg = avg;
         currentUpThreshold = LevelUpThresholds[Mathf.Clamp(currentLesson, 0, 7)];
 
+        // Kayan pencere ortalaması (son 10)
         float lessonAvg = lessonWindowAverages.Average();
 
         Debug.Log($"[Curriculum] Ders {currentLesson} | " +
@@ -98,6 +143,7 @@ public class CurriculumManager : MonoBehaviour
             ResetLessonTracking();
             ApplyLessonToAgent();
 
+            SaveLesson();
             Debug.Log($"<color=yellow>🏆 DERS ATLADI! {old} → {currentLesson} " +
                       $"(Ort: {lessonAvg:F3} ≥ {upThreshold})</color>");
         }
@@ -109,6 +155,7 @@ public class CurriculumManager : MonoBehaviour
             ResetLessonTracking();
             ApplyLessonToAgent();
 
+            SaveLesson();
             Debug.LogWarning($"⚠️ DERS DÜŞTÜ! {old} → {currentLesson} " +
                              $"(Ort: {lessonAvg:F3} ≤ {levelDownThreshold})");
         }
@@ -144,7 +191,18 @@ public class CurriculumManager : MonoBehaviour
         currentLesson++;
         ResetLessonTracking();
         ApplyLessonToAgent();
+        SaveLesson();
         Debug.Log($"[DEBUG] Manuel ders atlandı → {currentLesson}");
+    }
+
+    [ContextMenu("Dersi Sıfırla (Ders 0)")]
+    public void DebugReset()
+    {
+        currentLesson = 0;
+        ResetLessonTracking();
+        SaveLesson();
+        ApplyLessonToAgent();
+        Debug.Log("[DEBUG] Ders sıfırlandı → 0");
     }
 
     [ContextMenu("Manuel Ders Düşür")]
@@ -154,6 +212,7 @@ public class CurriculumManager : MonoBehaviour
         currentLesson--;
         ResetLessonTracking();
         ApplyLessonToAgent();
+        SaveLesson();
         Debug.Log($"[DEBUG] Manuel ders düşürüldü → {currentLesson}");
     }
 }
