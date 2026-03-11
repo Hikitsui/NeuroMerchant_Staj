@@ -1,0 +1,47 @@
+{
+    "name": "root",
+    "metadata": {
+        "timer_format_version": "0.1.0",
+        "start_time_seconds": "1773229584",
+        "python_version": "3.10.8 | packaged by conda-forge | (main, Nov 24 2022, 14:07:00) [MSC v.1916 64 bit (AMD64)]",
+        "command_line_arguments": "C:\\Users\\cagat\\miniconda3\\envs\\mlclean\\Scripts\\mlagents-learn config.yaml --run-id=Neuro",
+        "mlagents_version": "0.30.0",
+        "mlagents_envs_version": "0.28.0",
+        "communication_protocol_version": "1.5.0",
+        "pytorch_version": "2.7.1+cu118",
+        "numpy_version": "1.23.5",
+        "end_time_seconds": "1773229587"
+    },
+    "total": 3.3388155999999753,
+    "count": 1,
+    "self": 0.008370299999967301,
+    "children": {
+        "run_training.setup": {
+            "total": 0.09923930000002201,
+            "count": 1,
+            "self": 0.09923930000002201
+        },
+        "TrainerController.start_learning": {
+            "total": 3.231205999999986,
+            "count": 1,
+            "self": 0.0003363999998668987,
+            "children": {
+                "TrainerController._reset_env": {
+                    "total": 3.23085930000002,
+                    "count": 1,
+                    "self": 3.23085930000002
+                },
+                "trainer_threads": {
+                    "total": 1.0000000543186616e-06,
+                    "count": 1,
+                    "self": 1.0000000543186616e-06
+                },
+                "TrainerController._save_models": {
+                    "total": 9.30000004473186e-06,
+                    "count": 1,
+                    "self": 9.30000004473186e-06
+                }
+            }
+        }
+    }
+}

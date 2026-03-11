@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Unity.MLAgents;
 using Unity.MLAgents.Sensors;
 using Unity.MLAgents.Actuators;
@@ -7,30 +7,30 @@ using System.Collections.Generic;
 using System.Linq;
 
 // ==============================================================
-// NEUROMERCHANT — ANA AJAN
+// NEUROMERCHANT � ANA AJAN
 // ==============================================================
-// Gözlem Mimarisi — 281 GİRİŞ (SABİT):
-//   [22]  Ajan Öz Verisi
-//   [225] Yerleşke Hafızası (45 × 5)
-//   [9]   Dış Sinyaller (Ders 7'den aktif)
-//   [25]  Broker Gözlemleri (5 × 5)
+// G�zlem Mimarisi � 281 GIRIS (SABIT):
+//   [22]  Ajan �z Verisi
+//   [225] Yerleske Hafizasi (45 � 5)
+//   [9]   Dis Sinyaller (Ders 7'den aktif)
+//   [25]  Broker G�zlemleri (5 � 5)
 //   TOPLAM: 281
 //
 // Aksiyon: 4 Branch (50 / 5 / 5 / 5)
 //
-// Ders Teknik Açılım Tablosu:
-// ┌──────┬─────────────────┬──────────────────────────────────────────────────┐
-// │ Ders │ İsim            │ Teknik Açılım                                    │
-// ├──────┼─────────────────┼──────────────────────────────────────────────────┤
-// │  0   │ Temel Ticaret   │ 4 şehir, 1 ürün, anlık fiyat görünür            │
-// │  1   │ Üretim Zinciri  │ +5 köy (9 yerleşke), alım miktarı branch aktif  │
-// │  2   │ Pazar Dinamiği  │ Doygunluk aktif, satış miktarı branch aktif      │
-// │  3   │ Envanter Yön.   │ 4 ürün, 14 yerleşke                             │
-// │  4   │ Hafıza ve Sis   │ Fog of War: hafıza yaşı gözleme gerçekten yansır│
-// │  5   │ Bilgi Yatırımı  │ Broker branch aktif, 27 yerleşke                │
-// │  6   │ İmparatorluk    │ 45 yerleşke, 12 ürün                            │
-// │  7   │ Kriz Yönetimi   │ Event + Kontrat sinyalleri aktif                │
-// └──────┴─────────────────┴──────────────────────────────────────────────────┘
+// Ders Teknik A�ilim Tablosu:
+// +---------------------------------------------------------------------------+
+// � Ders � Isim            � Teknik A�ilim                                    �
+// +------+-----------------+--------------------------------------------------�
+// �  0   � Temel Ticaret   � 4 sehir, 1 �r�n, anlik fiyat g�r�n�r            �
+// �  1   � �retim Zinciri  � +5 k�y (9 yerleske), alim miktari branch aktif  �
+// �  2   � Pazar Dinamigi  � Doygunluk aktif, satis miktari branch aktif      �
+// �  3   � Envanter Y�n.   � 4 �r�n, 14 yerleske                             �
+// �  4   � Hafiza ve Sis   � Fog of War: hafiza yasi g�zleme ger�ekten yansir�
+// �  5   � Bilgi Yatirimi  � Broker branch aktif, 27 yerleske                �
+// �  6   � Imparatorluk    � 45 yerleske, 12 �r�n                            �
+// �  7   � Kriz Y�netimi   � Event + Kontrat sinyalleri aktif                �
+// +---------------------------------------------------------------------------+
 // ==============================================================
 
 public class MerchantAgent : Agent
@@ -41,6 +41,12 @@ public class MerchantAgent : Agent
     [Header("Ekonomi")]
     public float currentMoney = 1000f;
     public float startingMoney = 2000f;
+
+    [Header("Dynamic Training Controls")]
+    public float movementPenalty = -0.00005f;
+    public float invalidActionPenalty = -0.001f;
+    public float invalidTargetPenalty = -0.05f;
+    public float profitRewardMultiplier = 0.01f;
 
     [Header("Kapasite Sistemi")]
     public int currentTier = 0;
@@ -54,21 +60,21 @@ public class MerchantAgent : Agent
     private CityController lastBuyCity;
     private CityController lastSellCity;
 
-    [Header("Training — Ürün Listesi (Ders sırasına göre)")]
+    [Header("Training � �r�n Listesi (Ders sirasina g�re)")]
     public ItemData itemWheat;    // Ders 0+
     public ItemData itemIron;     // Ders 3+
     public ItemData itemCoal;     // Ders 3+
     public ItemData itemCotton;   // Ders 3+
-    // Ders 6'da tüm ürünler açılır — WorldGenerator'daki liste kullanılır
+    // Ders 6'da t�m �r�nler a�ilir � WorldGenerator'daki liste kullanilir
 
     [Header("Episode")]
-    public int maxStepsPerEpisode = 3000;
+    public int maxStepsPerEpisode = 15000;
 
-    [Header("Bağlantılar")]
+    [Header("Baglantilar")]
     public CurriculumManager curriculumManager;
 
     // ----------------------------------------------------------
-    // MİMARİ SABİTLER
+    // MIMARI SABITLER
     // ----------------------------------------------------------
     private const int MAX_SETTLEMENTS = 45;
     private const int MAX_BROKERS = 5;
@@ -76,18 +82,18 @@ public class MerchantAgent : Agent
 
     private static readonly float[] AmountRatios = { 0.2f, 0.4f, 0.6f, 0.8f, 1.0f };
 
-    // Ders bazlı özellik açılım eşikleri (Yol Haritası tablosundan)
-    private const int LESSON_VILLAGES = 1; // Köyler açılır
+    // Ders bazli �zellik a�ilim esikleri (Yol Haritasi tablosundan)
+    private const int LESSON_VILLAGES = 1; // K�yler a�ilir
     private const int LESSON_SATURATION = 2; // Doygunluk aktif
-    private const int LESSON_SELL_BRANCH = 3; // Satış miktarı branch
-    private const int LESSON_BUY_BRANCH = 3; // Alım miktarı branch
-    private const int LESSON_MULTI_PRODUCT = 3; // 4 ürün
-    private const int LESSON_FOG_OF_WAR = 4; // Hafıza yaşı gerçek
+    private const int LESSON_SELL_BRANCH = 3; // Satis miktari branch
+    private const int LESSON_BUY_BRANCH = 3; // Alim miktari branch
+    private const int LESSON_MULTI_PRODUCT = 3; // 4 �r�n
+    private const int LESSON_FOG_OF_WAR = 4; // Hafiza yasi ger�ek
     private const int LESSON_BROKER_BRANCH = 5; // Broker branch aktif
-    private const int LESSON_FULL_MAP = 6; // 45 yerleşke, 12 ürün
+    private const int LESSON_FULL_MAP = 6; // 45 yerleske, 12 �r�n
     private const int LESSON_EXT_SIGNALS = 7; // Event + Kontrat
 
-    // Ders başına aktif ürün sayısı
+    // Ders basina aktif �r�n sayisi
     private static readonly int[] LessonProductCount = { 1, 1, 1, 4, 4, 4, 12, 12 };
 
     // ----------------------------------------------------------
@@ -95,31 +101,39 @@ public class MerchantAgent : Agent
     // ----------------------------------------------------------
     private bool boughtLocalInfo = false;
     private bool boughtGlobalInfo = false;
-    // allBrokers artık BrokerManager.Instance.brokers üzerinden erişiliyor
+    // allBrokers artik BrokerManager.Instance.brokers �zerinden erisiliyor
 
     // ----------------------------------------------------------
     // CURRICULUM
     // ----------------------------------------------------------
     [HideInInspector] public int currentLesson = 0;
-    // Ders başına aktif yerleşke sayısı
-    // Ders 0: 4  (Broker_1 şehirleri)
+    // Ders basina aktif yerleske sayisi
+    // Ders 0: 4  (Broker_1 sehirleri)
     // Ders 1: 9  (Broker_1 tam cluster)
-    // Ders 2: 9  (aynı, doygunluk aktif)
-    // Ders 3: 14 (+ Broker_2 şehirleri 4 + 1 köy)
+    // Ders 2: 9  (ayni, doygunluk aktif)
+    // Ders 3: 14 (+ Broker_2 sehirleri 4 + 1 k�y)
     // Ders 4: 18 (Broker_2 tam cluster)
     // Ders 5: 27 (+ Broker_3 tam cluster, broker branch aktif)
-    // Ders 6: 45 (tüm harita)
-    // Ders 7: 45 (aynı, event+kontrat aktif)
-    private static readonly int[] LessonSettlementCount = { 4, 9, 9, 14, 18, 27, 45, 45 };
+    // Ders 6: 45 (t�m harita)
+    // Ders 7: 45 (ayni, event+kontrat aktif)
+    // Ders 0: 9  (Broker_1 tam cluster - sehir+koy)
+    // Ders 1: 18 (Broker_2 tam cluster - yeni bolge)
+    // Ders 2: 18 (ayni, doygunluk aktif)
+    // Ders 3: 27 (Broker_3, 4 urun aktif)
+    // Ders 4: 36 (Broker_4, fog of war)
+    // Ders 5: 45 (Broker_5, broker branch)
+    // Ders 6: 45 (tum 12 urun)
+    // Ders 7: 45 (event+kontrat)
+    private static readonly int[] LessonSettlementCount = { 9, 18, 18, 27, 36, 45, 45, 45 };
 
-    // Step bazlı raporlama
+    // Step bazli raporlama
     private float episodeCumulativeReward = 0f;
     private int globalStepCount = 0;
     private int lastReportedStep = 0;
     private float stepWindowReward = 0f;
     private int stepWindowEpisodes = 0;
     private const int STEP_WINDOW = 50000;
-    private const int WARMUP_STEPS = 10;   // Episode başında bekleme adımı
+    private const int WARMUP_STEPS = 10;   // Episode basinda bekleme adimi
     private int warmupStepCount = 0;
 
     // ----------------------------------------------------------
@@ -135,27 +149,27 @@ public class MerchantAgent : Agent
     private CityController currentDestination;
     private List<CityController> allSettlements;
 
-    // Bekleyen aksiyon kararları
+    // Bekleyen aksiyon kararlari
     private int pendingBrokerAction = 0;
     private int pendingBuyAmountIndex = 4;
     private int pendingSellAmountIndex = 4;
 
     // ==========================================================
-    // BAŞLANGIÇ
+    // BASLANGI�
     // ==========================================================
     public override void Initialize()
     {
         navAgent = GetComponent<NavMeshAgent>();
 
-        // CurriculumManager'dan kaydedilmiş dersi al
+        // CurriculumManager'dan kaydedilmis dersi al
         if (curriculumManager != null)
             currentLesson = curriculumManager.currentLesson;
 
-        // allSettlements'i BrokerManager cluster sırasına göre doldur
-        // Her broker: önce şehirler (isProducer=false), sonra köyler (isProducer=true)
-        // Ders 0: index 0-3 = Broker_1 şehirleri (birbirine yakın)
-        // Ders 1: index 4-8 = Broker_1 köyleri de aktif
-        // Ders 2+: sonraki broker cluster'ları eklenir
+        // allSettlements'i BrokerManager cluster sirasina g�re doldur
+        // Her broker: �nce sehirler (isProducer=false), sonra k�yler (isProducer=true)
+        // Ders 0: index 0-3 = Broker_1 sehirleri (birbirine yakin)
+        // Ders 1: index 4-8 = Broker_1 k�yleri de aktif
+        // Ders 2+: sonraki broker cluster'lari eklenir
         allSettlements = new List<CityController>();
         if (BrokerManager.Instance != null && BrokerManager.Instance.brokers.Count > 0)
         {
@@ -168,7 +182,7 @@ public class MerchantAgent : Agent
                     if (village != null && !allSettlements.Contains(village))
                         allSettlements.Add(village);
             }
-            Debug.Log($"[Agent] allSettlements BrokerManager'dan yüklendi: {allSettlements.Count} yerleşke");
+            Debug.Log($"[Agent] allSettlements BrokerManager'dan y�klendi: {allSettlements.Count} yerleske");
         }
         else
         {
@@ -176,7 +190,7 @@ public class MerchantAgent : Agent
             allSettlements = FindObjectsOfType<CityController>()
                 .Where(c => !c.name.Contains("Guild") && !c.name.Contains("Broker"))
                 .OrderBy(c => c.isProducer).ThenBy(c => c.name).ToList();
-            Debug.LogWarning("[Agent] BrokerManager bulunamadı, fallback kullanılıyor!");
+            Debug.LogWarning("[Agent] BrokerManager bulunamadi, fallback kullaniliyor!");
         }
 
         for (int i = 0; i < MAX_SETTLEMENTS; i++)
@@ -190,20 +204,20 @@ public class MerchantAgent : Agent
     }
 
     // ==========================================================
-    // EPISODE BAŞLANGICI + STEP BAZLI RAPORLAMA
+    // EPISODE BASLANGICI + STEP BAZLI RAPORLAMA
     // ==========================================================
     public override void OnEpisodeBegin()
     {
         if (allSettlements == null || allSettlements.Count == 0) Initialize();
 
-        // Episode bitti — ödülü pencereye ekle
+        // Episode bitti � �d�l� pencereye ekle
         if (CompletedEpisodes > 0)
         {
             stepWindowReward += episodeCumulativeReward;
             stepWindowEpisodes += 1;
         }
 
-        // Sıfırla
+        // Sifirla
         currentMoney = startingMoney;
         carriedAmount = 0;
         carriedItemData = null;
@@ -224,7 +238,7 @@ public class MerchantAgent : Agent
 
         if (navAgent != null && navAgent.isOnNavMesh) navAgent.ResetPath();
 
-        // Başlangıçta aktif şehirlerden birine yerleş (köy değil)
+        // Baslangi�ta aktif sehirlerden birine yerles (k�y degil)
         int active = ActiveSettlementCount();
         var startCities = allSettlements.Take(active).Where(s => !s.isProducer).ToList();
         if (startCities.Count > 0)
@@ -232,18 +246,19 @@ public class MerchantAgent : Agent
         else if (allSettlements.Count > 0)
             transform.position = allSettlements[0].transform.position;
 
-        foreach (var s in allSettlements) s.ResetCity();
+        bool fullReset = (CompletedEpisodes % 10 == 0);
+        foreach (var s in allSettlements) s.ResetCity(fullReset);
 
         // Ders 2'den itibaren doygunluk aktif
         ApplySaturationSetting();
     }
 
     // ==========================================================
-    // GÖZLEMLER — 281 GİRİŞ
+    // G�ZLEMLER � 281 GIRIS
     // ==========================================================
     public override void CollectObservations(VectorSensor sensor)
     {
-        // ---- BLOK A: AJAN ÖZ VERİSİ (22) ----
+        // ---- BLOK A: AJAN �Z VERISI (22) ----
         sensor.AddObservation(currentMoney / 10000f);
         sensor.AddObservation(carriedAmount / (float)maxCapacity);
         sensor.AddObservation(transform.position.x / 500f);
@@ -252,7 +267,7 @@ public class MerchantAgent : Agent
         sensor.AddObservation(boughtLocalInfo ? 1f : 0f);
         sensor.AddObservation(boughtGlobalInfo ? 1f : 0f);
 
-        // 12 ürün envanter slotu
+        // 12 �r�n envanter slotu
         int activeProducts = LessonProductCount[Mathf.Clamp(currentLesson, 0, 7)];
         var activeItems = GetActiveItems();
         for (int i = 0; i < 12; i++)
@@ -267,7 +282,7 @@ public class MerchantAgent : Agent
         sensor.AddObservation(0f); // padding 21
         sensor.AddObservation(0f); // padding 22
 
-        // ---- BLOK B: YERLEŞKE HAFIZASI (45 × 5 = 225) ----
+        // ---- BLOK B: YERLESKE HAFIZASI (45 � 5 = 225) ----
         for (int i = 0; i < MAX_SETTLEMENTS; i++)
         {
             if (IsSettlementActive(i) && i < allSettlements.Count)
@@ -280,8 +295,8 @@ public class MerchantAgent : Agent
                 sensor.AddObservation(mem.lastKnownPrice / 500f);
                 sensor.AddObservation(mem.lastKnownStockRatio);
 
-                // Ders 4'ten önce: bilgi her zaman taze (Fog of War kapalı)
-                // Ders 4'ten itibaren: gerçek yaş gönderilir
+                // Ders 4'ten �nce: bilgi her zaman taze (Fog of War kapali)
+                // Ders 4'ten itibaren: ger�ek yas g�nderilir
                 float age = (currentLesson >= LESSON_FOG_OF_WAR)
                     ? mem.GetInformationAge() / 300f
                     : 0f;
@@ -299,7 +314,7 @@ public class MerchantAgent : Agent
             }
         }
 
-        // ---- BLOK C: DIŞ SİNYALLER (9) ----
+        // ---- BLOK C: DIS SINYALLER (9) ----
         if (currentLesson >= LESSON_EXT_SIGNALS && EventManager.Instance != null)
         {
             // Event (3)
@@ -337,16 +352,16 @@ public class MerchantAgent : Agent
         }
         else
         {
-            // Ders 7'den önce — padding (6 slot)
+            // Ders 7'den �nce � padding (6 slot)
             for (int i = 0; i < 6; i++) sensor.AddObservation(0f);
         }
 
-        // Komşu ajan (3) — ileride agent-to-agent
+        // Komsu ajan (3) � ileride agent-to-agent
         sensor.AddObservation(0f);
         sensor.AddObservation(0f);
         sensor.AddObservation(0f);
 
-        // ---- BLOK D: BROKER GÖZLEMLERİ (5 × 5 = 25) ----
+        // ---- BLOK D: BROKER G�ZLEMLERI (5 � 5 = 25) ----
         for (int i = 0; i < MAX_BROKERS; i++)
         {
             if (BrokerManager.Instance != null && i < BrokerManager.Instance.brokers.Count)
@@ -365,28 +380,28 @@ public class MerchantAgent : Agent
             }
         }
 
-        // TOPLAM: 22 + 225 + 9 + 25 = 281 ✓
+        // TOPLAM: 22 + 225 + 9 + 25 = 281 ?
     }
 
     // ==========================================================
-    // AKSİYONLAR — 4 BRANCH
+    // AKSIYONLAR � 4 BRANCH
     // ==========================================================
     public override void OnActionReceived(ActionBuffers actions)
     {
         if (StepCount >= maxStepsPerEpisode)
         {
-            // Episode bitti, elindeki mal için küçük ceza
+            // Episode bitti, elindeki mal i�in k���k ceza
             if (carriedAmount > 0) AddReward(-0.01f);
             Debug.Log($"<color=orange>[MAXSTEP]</color> Episode bitti | Para:{currentMoney:F0}G | Ders:{currentLesson}");
             EndEpisode();
             return;
         }
 
-        // Warmup: episode başında N adım bekle (reset yerleşmesi için)
+        // Warmup: episode basinda N adim bekle (reset yerlesmesi i�in)
         warmupStepCount++;
         if (warmupStepCount <= WARMUP_STEPS) return;
 
-        // Her adımda global sayacı artır ve curriculum penceresi dolu mu kontrol et
+        // Her adimda global sayaci artir ve curriculum penceresi dolu mu kontrol et
         globalStepCount++;
         if (globalStepCount - lastReportedStep >= STEP_WINDOW &&
             stepWindowEpisodes > 0 && curriculumManager != null)
@@ -396,11 +411,11 @@ public class MerchantAgent : Agent
             lastReportedStep = globalStepCount;
             stepWindowReward = 0f;
             stepWindowEpisodes = 0;
-            Debug.Log($"[Curriculum] Pencere raporlandı | Step:{globalStepCount} | Ort:{avg:F3} | Ders:{currentLesson}");
+            Debug.Log($"[Curriculum] Pencere raporlandi | Step:{globalStepCount} | Ort:{avg:F3} | Ders:{currentLesson}");
         }
 
-        // Ders 0-3: Tüm aktif yerleşkelerin bilgisi her adımda güncellenir (omniscient)
-        // Ders 4+: Sadece ziyarette güncellenir (fog of war)
+        // Ders 0-3: T�m aktif yerleskelerin bilgisi her adimda g�ncellenir (omniscient)
+        // Ders 4+: Sadece ziyarette g�ncellenir (fog of war)
         if (currentLesson < LESSON_FOG_OF_WAR)
         {
             int active = ActiveSettlementCount();
@@ -424,7 +439,7 @@ public class MerchantAgent : Agent
             }
             else
             {
-                // Yolda geçen her adım için çok küçük zaman cezası
+                // Yolda ge�en her adim i�in �ok k���k zaman cezasi
                 AddReward(-0.00005f);
             }
             return;
@@ -436,11 +451,11 @@ public class MerchantAgent : Agent
         pendingBrokerAction = (currentLesson >= LESSON_BROKER_BRANCH)
             ? actions.DiscreteActions[1] : 0;
 
-        // Branch 2: Alım miktarı (Ders 1'den aktif)
+        // Branch 2: Alim miktari (Ders 1'den aktif)
         pendingBuyAmountIndex = (currentLesson >= LESSON_BUY_BRANCH)
             ? Mathf.Clamp(actions.DiscreteActions[2], 0, 4) : 4;
 
-        // Branch 3: Satış miktarı (Ders 2'den aktif)
+        // Branch 3: Satis miktari (Ders 2'den aktif)
         pendingSellAmountIndex = (currentLesson >= LESSON_SELL_BRANCH)
             ? Mathf.Clamp(actions.DiscreteActions[3], 0, 4) : 4;
 
@@ -479,7 +494,7 @@ public class MerchantAgent : Agent
     }
 
     // ==========================================================
-    // VARIŞ — TİCARET
+    // VARIS � TICARET
     // ==========================================================
     void HandleArrivalInteraction()
     {
@@ -492,7 +507,7 @@ public class MerchantAgent : Agent
         if (currentLesson >= LESSON_EXT_SIGNALS)
             CheckContractCompletion();
 
-        // Aktif ürün seç
+        // Aktif �r�n se�
         ItemData activeItem = GetBestAvailableItem(currentDestination);
 
         // ===== ALIM =====
@@ -506,7 +521,13 @@ public class MerchantAgent : Agent
                 int price = currentDestination.GetPrice(activeItem);
                 float ratio = AmountRatios[pendingBuyAmountIndex];
                 int wantToBuy = Mathf.Max(1, Mathf.RoundToInt(maxCapacity * ratio));
-                int amount = Mathf.Min((int)(currentMoney / price), wantToBuy, marketItem.currentStock);
+
+                // Köyde vergi rezervi bırak — satılabilir stok = currentStock - dailyTax
+                int availableStock = currentDestination.isProducer
+                    ? Mathf.Max(0, marketItem.currentStock - marketItem.dailyTax)
+                    : marketItem.currentStock;
+
+                int amount = Mathf.Min((int)(currentMoney / price), wantToBuy, availableStock);
 
                 if (amount > 0)
                 {
@@ -524,7 +545,7 @@ public class MerchantAgent : Agent
             }
             else AddReward(-0.001f);
         }
-        // ===== SATIŞ =====
+        // ===== SATIS =====
         else
         {
             if (currentDestination == lastBuyCity) { AddReward(-0.05f); return; }
@@ -549,9 +570,14 @@ public class MerchantAgent : Agent
                     float reward = Mathf.Clamp(profit * REWARD_FACTOR, 0f, 2f);
                     AddReward(reward);
                     Debug.Log($"<color=green>[SELL]</color> {amountSell}x " +
-                              $"({ratio * 100:F0}%) Kâr:+{profit:F0}G Ödül:{reward:F3}");
+                              $"({ratio * 100:F0}%) K�r:+{profit:F0}G �d�l:{reward:F3}");
                 }
-                else AddReward(-0.01f);
+                else
+                {
+                    AddReward(-0.01f);
+                    Debug.Log($"<color=orange>[SELL-ZARAR]</color> {amountSell}x " +
+                              $"({ratio * 100:F0}%) Zarar:{profit:F0}G");
+                }
 
                 if (carriedAmount <= 0)
                 {
@@ -561,15 +587,15 @@ public class MerchantAgent : Agent
                     lastSellCity = currentDestination;
                     lastBuyCity = null;
                 }
-                return; // Satış yapıldı, aynı varışta alım yapma
+                return; // Satis yapildi, ayni varista alim yapma
             }
             else AddReward(-0.001f);
         }
 
         if (currentMoney <= 0)
         {
-            // İflas — büyük ceza, para sıfırla ve devam et
-            Debug.LogWarning($"<color=red>[IFLAS]</color> Para bitti! Son alım: {lastBuyCity?.cityName} | Mal: {carriedAmount}x {carriedItemData?.itemName}");
+            // Iflas � b�y�k ceza, para sifirla ve devam et
+            Debug.LogWarning($"<color=red>[IFLAS]</color> Para bitti! Son alim: {lastBuyCity?.cityName} | Mal: {carriedAmount}x {carriedItemData?.itemName}");
             AddReward(-1f);
             currentMoney = startingMoney;
             carriedAmount = 0;
@@ -577,24 +603,24 @@ public class MerchantAgent : Agent
             lastBuyCity = null;
             lastSellCity = null;
         }
-        // Hedef para: ders ilerledikçe artar
+        // Hedef para: ders ilerledik�e artar
         float moneyGoal = 3000f + currentLesson * 1000f;
         if (currentMoney >= moneyGoal)
         {
-            Debug.Log($"<color=yellow>[HEDEF]</color> {currentMoney:F0}G ≥ {moneyGoal:F0}G | Ders:{currentLesson}");
+            Debug.Log($"<color=yellow>[HEDEF]</color> {currentMoney:F0}G = {moneyGoal:F0}G | Ders:{currentLesson}");
             AddReward(2f);
             EndEpisode();
         }
     }
 
     // ==========================================================
-    // BROKER AKSİYONU
+    // BROKER AKSIYONU
     // ==========================================================
     void HandleBrokerAction()
     {
         if (BrokerManager.Instance == null) return;
 
-        // Ders 5'ten önce broker kullanılmaz
+        // Ders 5'ten �nce broker kullanilmaz
         if (currentLesson < LESSON_BROKER_BRANCH) return;
 
         switch (pendingBrokerAction)
@@ -684,21 +710,21 @@ public class MerchantAgent : Agent
     // DERS BAZLI YARDIMCILAR
     // ==========================================================
 
-    // Derse göre aktif ürün listesi
-    // Ders 0-2: sadece Wheat (tek ürün, basit öğrenme)
-    // Ders 3-5: Wheat + Iron + Coal + Cotton (4 ürün)
-    // Ders 6-7: tüm 12 ürün
+    // Derse g�re aktif �r�n listesi
+    // Ders 0-2: sadece Wheat (tek �r�n, basit �grenme)
+    // Ders 3-5: Wheat + Iron + Coal + Cotton (4 �r�n)
+    // Ders 6-7: t�m 12 �r�n
     List<ItemData> GetActiveItems()
     {
         var items = BrokerManager.Instance?.activeItems;
         if (items == null || items.Count == 0) return new List<ItemData>();
 
         if (currentLesson >= LESSON_FULL_MAP)
-            return items; // 12 ürün
+            return items; // 12 �r�n
 
         if (currentLesson >= LESSON_MULTI_PRODUCT)
         {
-            // 4 temel ürün: Wheat, Iron, Coal, Cotton
+            // 4 temel �r�n: Wheat, Iron, Coal, Cotton
             return items.Where(i => i == itemWheat || i == itemIron ||
                                     i == itemCoal || i == itemCotton).ToList();
         }
@@ -707,29 +733,66 @@ public class MerchantAgent : Agent
         return items.Where(i => i == itemWheat).ToList();
     }
 
-    // Varış yerleşkesinde alınabilecek en ucuz ürünü döner
-    // Koy mu şehir mi fark etmez — stok varsa ve ucuzsa al
+    // Varis yerleskesinde alinabilecek en ucuz �r�n� d�ner
+    // Koy mu sehir mi fark etmez � stok varsa ve ucuzsa al
     ItemData GetBestAvailableItem(CityController city)
     {
-        // Son satış yaptığın şehirden hemen alım yapma
+        // Son satis yaptigin sehirden hemen alim yapma
         if (city == lastSellCity) return null;
 
         var items = GetActiveItems();
         ItemData best = null;
-        int bestStock = 0;
+        float bestProfit = float.MinValue;
+        int active = ActiveSettlementCount();
+
         foreach (var item in items)
         {
             var mi = city.marketItems.Find(x => x.itemData == item);
-            if (mi != null && mi.currentStock > bestStock)
+            if (mi == null || mi.currentStock <= 0) continue;
+
+            int buyPrice = city.GetPrice(item);
+            if (buyPrice <= 0) continue;
+
+            // Köyde vergi rezervi bırak
+            int availableStock = city.isProducer
+                ? Mathf.Max(0, mi.currentStock - mi.dailyTax)
+                : mi.currentStock;
+
+            int affordableAmount = Mathf.Min((int)(currentMoney / buyPrice), availableStock, maxCapacity);
+            if (affordableAmount <= 0) continue;
+
+            float totalCost = affordableAmount * buyPrice;
+
+            // Bu miktarı satabileceğimiz en iyi şehri bul
+            float bestSellValue = 0f;
+            for (int i = 0; i < active && i < allSettlements.Count; i++)
             {
-                bestStock = mi.currentStock;
+                var sellCity = allSettlements[i];
+                if (sellCity == city) continue; // Aldığın yerden satma
+                if (sellCity == lastBuyCity) continue;
+
+                var si = sellCity.marketItems.Find(x => x.itemData == item);
+                if (si == null) continue;
+
+                float sellVal = sellCity.GetBulkSellValue(item, affordableAmount);
+                if (sellVal > bestSellValue) bestSellValue = sellVal;
+            }
+
+            float netProfit = bestSellValue - totalCost;
+
+            // Kar beklentisi yoksa bu kaynağı atla
+            if (netProfit <= 0) continue;
+
+            if (netProfit > bestProfit)
+            {
+                bestProfit = netProfit;
                 best = item;
             }
         }
         return best;
     }
 
-    // Doygunluk (Ders 2'de açılır) — CityController üzerinde toggle
+    // Doygunluk (Ders 2'de a�ilir) � CityController �zerinde toggle
     void ApplySaturationSetting()
     {
         bool satActive = currentLesson >= LESSON_SATURATION;
@@ -758,17 +821,17 @@ public class MerchantAgent : Agent
     void UpdateMemory(int idx, CityController settle)
     {
         if (!memoryMap.ContainsKey(idx)) return;
-        // Ders 4'ten önce hafıza her zaman güncellenir (Fog of War kapalı)
-        // Ders 4'ten itibaren sadece ziyarette güncellenir (mevcut davranış)
+        // Ders 4'ten �nce hafiza her zaman g�ncellenir (Fog of War kapali)
+        // Ders 4'ten itibaren sadece ziyarette g�ncellenir (mevcut davranis)
         var item = settle.marketItems.Find(x => x.itemData == (carriedItemData ?? itemWheat));
         float price = (item != null) ? settle.GetPrice(item.itemData) : 0f;
         float stock = (item != null && item.maxStock > 0)
             ? (float)item.currentStock / item.maxStock : 0f;
 
         if (currentLesson < LESSON_FOG_OF_WAR)
-            memoryMap[idx].UpdateAlwaysFresh(price, stock); // Anlık, yaş=0
+            memoryMap[idx].UpdateAlwaysFresh(price, stock); // Anlik, yas=0
         else
-            memoryMap[idx].Update(price, stock);            // Gerçek zaman
+            memoryMap[idx].Update(price, stock);            // Ger�ek zaman
     }
 
     CityController GetBestSellCity()
@@ -779,7 +842,7 @@ public class MerchantAgent : Agent
         for (int i = 0; i < active && i < allSettlements.Count; i++)
         {
             var city = allSettlements[i];
-            if (city == lastBuyCity) continue; // Aldığın yerden satma
+            if (city == lastBuyCity) continue; // Aldigin yerden satma
             var item = city.marketItems.Find(x => x.itemData == carriedItemData);
             if (item == null) continue;
             int val = city.GetBulkSellValue(carriedItemData, carriedAmount);
@@ -810,7 +873,7 @@ public class MerchantAgent : Agent
         return 0f;
     }
 
-    void OnNewDay() { } // Zaman cezası yok
+    void OnNewDay() { } // Zaman cezasi yok
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {
@@ -839,15 +902,15 @@ public class SettlementMemory
     public float lastKnownStockRatio = 0f;
     public float lastVisitTime = -999f;
 
-    // Ders 4'ten önce kullanılır — zaman damgası olmadan anlık güncelleme
+    // Ders 4'ten �nce kullanilir � zaman damgasi olmadan anlik g�ncelleme
     public void UpdateAlwaysFresh(float price, float stockRatio)
     {
         lastKnownPrice = price;
         lastKnownStockRatio = stockRatio;
-        lastVisitTime = 0f; // Yaş her zaman 0
+        lastVisitTime = 0f; // Yas her zaman 0
     }
 
-    // Ders 4'ten itibaren kullanılır — gerçek zaman damgası
+    // Ders 4'ten itibaren kullanilir � ger�ek zaman damgasi
     public void Update(float price, float stockRatio)
     {
         lastKnownPrice = price;

@@ -15,4 +15,5 @@ MonoBehaviour:
   itemName: Iron
   icon: {fileID: 0}
   basePrice: 35
+  tier: 2
   dailyBaseConsumption: 8

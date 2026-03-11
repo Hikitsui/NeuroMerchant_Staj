@@ -21,8 +21,8 @@ public class CityController : MonoBehaviour
 
     [Range(100, 5000)]
     public int population = 100;
-    public int minPopulation = 50;
-    public int maxPopulation = 5000;
+    public int minPopulation = 100;
+    public int maxPopulation = 600;
 
     // Nufus degisim hizlari (%5)
     private float growthFactor = 1.05f;
@@ -33,8 +33,21 @@ public class CityController : MonoBehaviour
     public List<CityController> satelliteVillages = new List<CityController>();
 
     // --- ML-AGENTS ICIN EKLEME: RESETLEME ---
+    public bool freezeReset = false; // Eger true ise, Episode Reset'te bu sehrin stogu/nufusu sifirlanmaz.
     private int startStockBuffer; // Baslangic stogunu hafizada tutmak icin
     private int startPopBuffer;
+
+    // Tier'a göre şehir maxStock
+    public static int GetMaxStockForTier(ItemTier tier)
+    {
+        switch (tier)
+        {
+            case ItemTier.Tier1: return 600; // Temel: Wheat, Wood, Coal, Fish
+            case ItemTier.Tier2: return 400; // Orta: Iron, Leather, Meat, Clothes
+            case ItemTier.Tier3: return 200; // Lüks: Tools, Spices, Jewelry
+            default: return 400;
+        }
+    }
 
     public void RegisterSatellite(CityController village)
     {
@@ -109,22 +122,26 @@ public class CityController : MonoBehaviour
         {
             MarketItem newItem = new MarketItem();
             newItem.itemData = data;
-            // --- STOK LIMITLERI (Once limiti belirle) ---
+
+            // --- STOK LİMİTLERİ: Tier bazlı ---
             if (enableDynamicStorage)
             {
-                // Dinamik: Nufusa gore (200 + pop/10)
                 newItem.maxStock = 200 + (startPop / 10);
+            }
+            else if (producer)
+            {
+                // Köy stok limiti tier'dan bağımsız sabit
+                newItem.maxStock = 400;
             }
             else
             {
-                // Sabit: Sehir=500, Koy=400 (Uretici=Koy)
-                newItem.maxStock = producer ? 400 : 500;
+                // Şehir: tier'a göre maxStock
+                newItem.maxStock = GetMaxStockForTier(data.tier);
             }
 
-            // Başlangıç stoğu: köy dolu, şehir boş — fiyat asimetrisi garantili
             float randomRatio = producer
-                ? Random.Range(0.75f, 0.90f)   // Köy: %75-90 dolu → ucuz
-                : Random.Range(0.15f, 0.35f);  // Şehir: %15-35 dolu → pahalı
+                ? Random.Range(0.30f, 0.50f)
+                : Random.Range(0.15f, 0.25f);
             newItem.currentStock = Mathf.RoundToInt(newItem.maxStock * randomRatio);
 
             newItem.dailyProduction = producer ? Random.Range(10, 20) : 0;
@@ -140,31 +157,25 @@ public class CityController : MonoBehaviour
     // Stok maxStock'a → 0.5x basePrice (bolluk)
     int CalculatePriceLogic(MarketItem marketItem)
     {
+        // KÖY (isProducer): Fiyat her zaman sabit = basePrice
+        if (isProducer)
+            return marketItem.itemData.basePrice;
+
+        // ŞEHİR (tüketici): Stok bazlı dinamik fiyat
+        // Stok 0          → 2x basePrice (kıtlık)
+        // Stok maxStock/2 → 1x basePrice (denge)
+        // Stok maxStock   → 0.5x basePrice (bolluk)
         float currentAmount = Mathf.Max(marketItem.currentStock, 1);
         float halfStock = marketItem.maxStock * 0.5f;
-
-        // fillRatio: 0 = boş, 1 = yarı dolu (denge), 2 = tam dolu
         float fillRatio = currentAmount / halfStock;
 
         float priceMultiplier;
-
         if (fillRatio <= 1.0f)
-        {
-            // Kıtlık bölgesi: stok 0→yarı, fiyat 2x→1x
             priceMultiplier = Mathf.Lerp(2.0f, 1.0f, fillRatio);
-        }
         else
-        {
-            // Bolluk bölgesi: stok yarı→dolu, fiyat 1x→0.5x
             priceMultiplier = Mathf.Lerp(1.0f, 0.5f, Mathf.Min(fillRatio - 1.0f, 1.0f));
-        }
 
-        float finalPrice = marketItem.itemData.basePrice * priceMultiplier;
-
-        // Üretici indirimi: köy her zaman %20 daha ucuz satar
-        if (isProducer) finalPrice *= 0.8f;
-
-        return Mathf.Clamp(Mathf.RoundToInt(finalPrice), 1, 9999);
+        return Mathf.Clamp(Mathf.RoundToInt(marketItem.itemData.basePrice * priceMultiplier), 1, 9999);
     }
 
     // Ajanlar tekil fiyat sormak için bunu kullanır
@@ -189,18 +200,22 @@ public class CityController : MonoBehaviour
 
         for (int i = 0; i < amountToSell; i++)
         {
-            float amount = Mathf.Max(tempStock, 1);
-            float ratio = amount / marketItem.maxStock;
-
-            // Aynı mantığı tekrar uygula
-            float halfMax = marketItem.maxStock * 0.5f;
-            float fillR = amount / halfMax;
-            float mult = (fillR <= 1.0f)
-                ? Mathf.Lerp(2.0f, 1.0f, fillR)
-                : Mathf.Lerp(1.0f, 0.5f, Mathf.Min(fillR - 1.0f, 1.0f));
-
-            float price = marketItem.itemData.basePrice * mult;
-            if (isProducer) price *= 0.8f;
+            float price;
+            if (isProducer)
+            {
+                // Köy: sabit fiyat
+                price = marketItem.itemData.basePrice;
+            }
+            else
+            {
+                // Şehir: stok bazlı dinamik fiyat
+                float halfMax = marketItem.maxStock * 0.5f;
+                float fillR = Mathf.Max(tempStock, 1) / halfMax;
+                float mult = (fillR <= 1.0f)
+                    ? Mathf.Lerp(2.0f, 1.0f, fillR)
+                    : Mathf.Lerp(1.0f, 0.5f, Mathf.Min(fillR - 1.0f, 1.0f));
+                price = marketItem.itemData.basePrice * mult;
+            }
 
             expectedTotalIncome += Mathf.Clamp(Mathf.RoundToInt(price), 1, 1000);
 
@@ -217,49 +232,61 @@ public class CityController : MonoBehaviour
 
         foreach (var item in marketItems)
         {
-            // 1. EVENT ETKILI TUKETIM
-            // FORMUL: MaxPop/2 nufusta Base consumption kadar tuketsin. MaxPop'ta 2 kati.
-            // Ornek: Pop=2500 (Yarim), Max=5000 -> Ratio=1. Base=25 -> Cons=25. (500 stok 20 gun yeter) = bugday temel alinarak planlandi egitim surecine gore degisiklik yapilabilir
-            float consumptionRatio = (float)population / (maxPopulation / 2.0f);
-
-            // --- Event Carpani eklendi ---
-            int baseCons = Mathf.RoundToInt(item.itemData.dailyBaseConsumption * consumptionRatio);
-            int totalConsumption = Mathf.RoundToInt(baseCons * consumptionMultiplier);
-
-            if (totalConsumption < 1) totalConsumption = 1;
+            // TÜKETİM: x = dailyBaseConsumption, ratio = pop/300
+            // pop=150→x/2 | pop=300→x | pop=600→3x/2  (clamp: 0.5–1.5)
+            float popRatio = Mathf.Clamp(population / 300f, 0.5f, 1.5f);
+            int totalConsumption = Mathf.Max(1, Mathf.RoundToInt(item.itemData.dailyBaseConsumption * popRatio * consumptionMultiplier));
             item.lastDailyConsumption = totalConsumption;
 
             if (item.currentStock >= totalConsumption)
-            {
                 item.currentStock -= totalConsumption;
-            }
             else
             {
                 item.currentStock = 0;
                 allNeedsMet = false;
             }
 
-            // 2. EVENT ETKILI URETIM
-            if (isProducer)
+            // KERVAN TAKVİYESİ — sadece şehirlerde (tüketici), stok kritik altındaysa
+            // basePrice'a göre tier belirlenir: ucuz=temel, pahalı=lüks
+            if (!isProducer)
             {
+                int caravanThreshold, caravanMin, caravanMax;
+                switch (item.itemData.tier)
+                {
+                    case ItemTier.Tier1: // Temel (Wheat, Wood, Coal, Fish)
+                        caravanThreshold = 20; caravanMin = 50; caravanMax = 150; break;
+                    case ItemTier.Tier2: // Orta (Iron, Leather, Meat, Clothes)
+                        caravanThreshold = 20; caravanMin = 50; caravanMax = 150; break;
+                    case ItemTier.Tier3: // Lüks (Tools, Spices, Jewelry)
+                        caravanThreshold = 20; caravanMin = 50; caravanMax = 150; break;
+                    default:
+                        caravanThreshold = 20; caravanMin = 50; caravanMax = 150; break;
+                }
+
+                if (item.currentStock < caravanThreshold)
+                {
+                    int supply = Random.Range(caravanMin, caravanMax);
+                    item.currentStock = Mathf.Min(item.currentStock + supply, item.maxStock);
+                    // Debug.Log($"[KERVAN] {cityName} | {item.itemData.itemName} +{supply}");
+                }
+            }
+            {
+                // 1. VERGİ — her gün stoktan kesilir, üretimden bağımsız
+                if (sovereignCity != null && item.dailyTax > 0)
+                {
+                    int taxAmount = Mathf.Min(item.dailyTax, item.currentStock);
+                    if (taxAmount > 0)
+                    {
+                        item.currentStock -= taxAmount;
+                        sovereignCity.ReceiveTax(item.itemData, taxAmount);
+                    }
+                }
+
+                // 2. ÜRETİM — vergi sonrası stok maxStock'un altındaysa üret
                 if (item.currentStock < item.maxStock)
                 {
-                    // --- Event Carpani eklendi ---
                     int productionAmount = Mathf.RoundToInt(item.dailyProduction * productionMultiplier);
-                    item.currentStock += productionAmount;
-
-                    // --- TAX SYSTEM (GOODS BASED) ---
-                    // Uretilen malin %20'si (veya sabit miktar) vergi olarak gider
-                    int taxAmount = Mathf.CeilToInt(productionAmount * 0.40f);
-
-                    if (sovereignCity != null)
-                    {
-                        // Bagli oldugum sehire URUN olarak vergi ode
-                        sovereignCity.ReceiveTax(item.itemData, taxAmount);
-
-                        // Vergiyi stoktan dus (Cunku gonderdildi)
-                        item.currentStock -= taxAmount;
-                    }
+                    item.currentStock = Mathf.Min(item.currentStock + productionAmount, item.maxStock);
                 }
             }
         }
@@ -271,7 +298,7 @@ public class CityController : MonoBehaviour
         var marketItem = marketItems.Find(x => x.itemData == item);
         if (marketItem != null)
         {
-            marketItem.currentStock += amount;
+            marketItem.currentStock = Mathf.Min(marketItem.currentStock + amount, marketItem.maxStock);
         }
     }
 
@@ -323,25 +350,43 @@ public class CityController : MonoBehaviour
 
     // startStockBuffer = marketItems[0].currentStock; (Bunu tum itemler icin yapacak basit bir yapi lazim)
     // startPopBuffer = population;
-    public void ResetCity()
+    public void ResetCity(bool forceFullReset = false)
     {
-        population = 100;
+        if (freezeReset) return;
+
         ClearEvent();
 
+        // Zorunlu reset veya stok negatifse tam sıfırla
+        if (forceFullReset)
+        {
+            population = 100;
+            PerformFullReset();
+            return;
+        }
+
+        // Soft reset: sadece kritik uç durumlara müdahale et
+        foreach (var item in marketItems)
+        {
+            // Kıtlık engeli: %5'in altındaysa %15'e çek
+            if (item.currentStock < item.maxStock * 0.05f)
+                item.currentStock = Mathf.RoundToInt(item.maxStock * 0.15f);
+
+            // Enflasyon engeli: %95'in üstündeyse %75'e indir
+            else if (item.currentStock > item.maxStock * 0.95f)
+                item.currentStock = Mathf.RoundToInt(item.maxStock * 0.75f);
+
+            // Aksi halde stok olduğu gibi kalır
+        }
+    }
+
+    private void PerformFullReset()
+    {
         foreach (var item in marketItems)
         {
             if (isProducer)
-            {
-                // Köy/üretici: dolu başlar (%75-90) — ucuz fiyat, bol stok
-                float ratio = Random.Range(0.75f, 0.90f);
-                item.currentStock = Mathf.RoundToInt(item.maxStock * ratio);
-            }
+                item.currentStock = Mathf.RoundToInt(item.maxStock * Random.Range(0.30f, 0.50f));
             else
-            {
-                // Şehir/tüketici: boş başlar (%15-35) — pahalı fiyat, kıtlık
-                float ratio = Random.Range(0.15f, 0.35f);
-                item.currentStock = Mathf.RoundToInt(item.maxStock * ratio);
-            }
+                item.currentStock = Mathf.RoundToInt(item.maxStock * Random.Range(0.15f, 0.25f));
         }
     }
 }

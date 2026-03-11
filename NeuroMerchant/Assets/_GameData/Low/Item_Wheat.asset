@@ -15,4 +15,5 @@ MonoBehaviour:
   itemName: Wheat
   icon: {fileID: 0}
   basePrice: 8
-  dailyBaseConsumption: 25
+  tier: 1
+  dailyBaseConsumption: 20

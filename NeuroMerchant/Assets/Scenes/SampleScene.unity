@@ -602,6 +602,10 @@ MonoBehaviour:
   MaxStep: 5000
   currentMoney: 40
   startingMoney: 2000
+  movementPenalty: -0.00005
+  invalidActionPenalty: -0.001
+  invalidTargetPenalty: -0.05
+  profitRewardMultiplier: 0.01
   currentTier: 0
   maxCapacity: 20
   carriedItemData: {fileID: 0}
@@ -1318,7 +1322,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   merchantAgent: {fileID: 360056955}
-  runId: NeuroMerchant_V5
+  runId: NeuroMerchant_V7
   levelDownThreshold: -0.4
   currentLesson: 0
   lastWindowAvg: 0

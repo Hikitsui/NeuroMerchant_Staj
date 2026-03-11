@@ -15,4 +15,5 @@ MonoBehaviour:
   itemName: Coal
   icon: {fileID: 0}
   basePrice: 25
+  tier: 2
   dailyBaseConsumption: 10

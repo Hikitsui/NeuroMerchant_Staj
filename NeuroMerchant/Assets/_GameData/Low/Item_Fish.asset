@@ -15,4 +15,5 @@ MonoBehaviour:
   itemName: Fish
   icon: {fileID: 0}
   basePrice: 15
-  dailyBaseConsumption: 20
+  tier: 1
+  dailyBaseConsumption: 16

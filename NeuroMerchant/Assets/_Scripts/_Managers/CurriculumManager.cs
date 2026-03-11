@@ -29,7 +29,7 @@ public class CurriculumManager : MonoBehaviour
 
     [Header("Run Kimliği")]
     [Tooltip("config.yaml --run-id ile aynı olmalı (örn: NeuroMerchant_V4)")]
-    public string runId = "NeuroMerchant_V4";
+    public string runId = "NeuroMerchant_V7";
 
     // Ders kaydı run_id'ye göre ayrı dosyaya
     private string SavePath => System.IO.Path.Combine(Application.dataPath, "..", $"curriculum_{runId}.txt");
@@ -38,13 +38,13 @@ public class CurriculumManager : MonoBehaviour
     // Index = mevcut ders, değer = o dersten bir üste geçiş eşiği
     private static readonly float[] LevelUpThresholds =
     {
-        0.8f,  // Ders 0 → 1
-        0.8f,  // Ders 1 → 2
-        0.7f,  // Ders 2 → 3
-        0.7f,  // Ders 3 → 4
-        0.6f,  // Ders 4 → 5
-        0.6f,  // Ders 5 → 6
-        0.5f,  // Ders 6 → 7
+        0.85f, // Ders 0 → 1
+        0.85f, // Ders 1 → 2
+        0.85f, // Ders 2 → 3
+        0.80f, // Ders 3 → 4
+        0.80f, // Ders 4 → 5
+        0.75f, // Ders 5 → 6
+        0.75f, // Ders 6 → 7
         999f,  // Ders 7 = Final, geçiş yok
     };
 
@@ -109,7 +109,7 @@ public class CurriculumManager : MonoBehaviour
 
         lessonWindowAverages.Add(avg);
         // Son 10 pencereyi tut, eskisini at (kayan pencere)
-        if (lessonWindowAverages.Count > 10)
+        if (lessonWindowAverages.Count > 40)
             lessonWindowAverages.RemoveAt(0);
 
         windowCountInLesson = lessonWindowAverages.Count;

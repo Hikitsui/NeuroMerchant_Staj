@@ -15,4 +15,5 @@ MonoBehaviour:
   itemName: Cotton
   icon: {fileID: 0}
   basePrice: 18
-  dailyBaseConsumption: 20
+  tier: 1
+  dailyBaseConsumption: 16
