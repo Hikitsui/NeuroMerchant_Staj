@@ -34,25 +34,25 @@ public class CurriculumManager : MonoBehaviour
     // Ders kaydı run_id'ye göre ayrı dosyaya
     private string SavePath => System.IO.Path.Combine(Application.dataPath, "..", $"curriculum_{runId}.txt");
 
-    [Header("Ders Geçiş Eşikleri (Yol Haritası)")]
-    // Index = mevcut ders, değer = o dersten bir üste geçiş eşiği
+    [Header("Ders Geçiş Eşikleri")]
+    // Index = mevcut ders, değer = o dersten bir üste geçiş eşiği (ders 1'den başlar)
     private static readonly float[] LevelUpThresholds =
     {
-        0.85f, // Ders 0 → 1
+        999f, // index 0 — kullanılmaz (padding)
         0.85f, // Ders 1 → 2
-        0.85f, // Ders 2 → 3
+        0.82f, // Ders 2 → 3
         0.80f, // Ders 3 → 4
-        0.80f, // Ders 4 → 5
+        0.78f, // Ders 4 → 5
         0.75f, // Ders 5 → 6
-        0.75f, // Ders 6 → 7
-        999f,  // Ders 7 = Final, geçiş yok
+        0.72f, // Ders 6 → 7
+        999f,  // Ders 7 = Final
     };
 
     [Header("Düşüş Eşiği (Tüm Dersler)")]
     public float levelDownThreshold = -0.2f;
 
     [Header("Durum (Read Only)")]
-    public int currentLesson = 0;
+    public int currentLesson = 1; // 1'den başlar
     public float lastWindowAvg = 0f;
     public int windowCountInLesson = 0;
     public float currentUpThreshold = 0.8f; // Inspector'da görünsün

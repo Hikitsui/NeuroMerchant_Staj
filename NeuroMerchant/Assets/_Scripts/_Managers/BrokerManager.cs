@@ -1,208 +1,124 @@
-﻿using UnityEngine;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 
-// ============================================================
-// RegionalBroker: 4 şehir + bağlı köyleri tutar
-// Düzenli olarak en karlı al-sat rotasını hesaplar
-// ============================================================
-[System.Serializable]
-public class RegionalBroker
+public class RegionalBroker : MonoBehaviour
 {
-    public string brokerName;
-    public Vector3 position;
-    public List<CityController> cities = new List<CityController>();
-    public List<CityController> villages = new List<CityController>();
+    [Header("Broker Identity")]
+    public string brokerName = "Trader Guild";
 
-    // En karlı rota
-    public CityController bestBuyCity;
-    public CityController bestSellCity;
-    public ItemData bestItem;
-    public int bestProfit;
-    public float lastUpdateTime;
+    [Header("Information Service")]
+    public List<CityController> servicedSettlements;
 
-    public List<CityController> AllSettlements =>
-        cities.Concat(villages).ToList();
+    public int tier1Cost = 2500;  // Merchant Wagon (50 Cap)
+    public int tier2Cost = 10000; // Trade Caravan (100 Cap)
 
-    public bool IsNearby(Vector3 agentPos, float radius)
-        => Vector3.Distance(agentPos, position) <= radius;
 
-    public void RecalculateBestRoute(List<ItemData> activeItems)
+    // Broker'in dunya pozisyonu (MerchantAgent mesafe hesabi icin)
+    [HideInInspector] public Vector3 position;
+
+    // cities ve villages ayri listeler (BrokerManager.brokers iterasyonu icin)
+    [HideInInspector] public List<CityController> cities = new List<CityController>();
+    [HideInInspector] public List<CityController> villages = new List<CityController>();
+
+    // Tum yerleskelerin birlesmis listesi
+    public List<CityController> AllSettlements => servicedSettlements ?? new List<CityController>();
+
+    private List<CityController> clusterCities;
+
+    public void InitBroker(List<CityController> assignedCluster)
     {
-        bestProfit = 0;
-        bestBuyCity = null;
-        bestSellCity = null;
-        bestItem = null;
+        clusterCities = assignedCluster;
+        servicedSettlements = new List<CityController>();
 
-        var producers = villages.Where(v => v != null && v.isProducer).ToList();
-        var consumers = cities.Where(c => c != null && !c.isProducer).ToList();
-
-        // Ders 0: producer yoksa sehirler arasi hesapla
-        if (producers.Count == 0) producers = cities.Where(c => c != null).ToList();
-        if (consumers.Count == 0) consumers = cities.Where(c => c != null).ToList();
-
-        foreach (var item in activeItems)
+        // Tum sehirleri ve uydularini toplu listeye ekle
+        foreach (var city in assignedCluster)
         {
-            foreach (var buyCity in producers)
+            servicedSettlements.Add(city);
+            if (city.satelliteVillages != null)
             {
-                var buyItem = buyCity.marketItems?.Find(x => x.itemData == item);
-                if (buyItem == null || buyItem.currentStock <= 0) continue;
-                int buyPrice = buyCity.GetPrice(item);
-
-                foreach (var sellCity in consumers)
-                {
-                    if (sellCity == buyCity) continue;
-                    var sellItem = sellCity.marketItems?.Find(x => x.itemData == item);
-                    if (sellItem == null) continue;
-                    int sellPrice = sellCity.GetPrice(item);
-
-                    int profit = sellPrice - buyPrice;
-                    if (profit > bestProfit)
-                    {
-                        bestProfit = profit;
-                        bestBuyCity = buyCity;
-                        bestSellCity = sellCity;
-                        bestItem = item;
-                    }
-                }
+                servicedSettlements.AddRange(city.satelliteVillages);
             }
         }
+    }
 
-        lastUpdateTime = Time.time;
-        Debug.Log($"<color=magenta>[BROKER {brokerName}]</color> En karli rota: " +
-                  $"{bestBuyCity?.cityName ?? "?"} -> {bestSellCity?.cityName ?? "?"} " +
-                  $"| {bestItem?.itemName ?? "?"} | Kar: {bestProfit}G");
+    // --- PAKET 1: YEREL PAZAR BILGISI (Cluster Info) ---
+    public List<CityController> BuyLocalInfo(MerchantAgent agent)
+    {
+        //TODO Sistem manager uzerinde isliyor hangisi daha verimli olacaksa ondan devam edecek suan bos
+        Debug.Log($"<color=magenta>BROKER ({brokerName}):</color> Sold LOCAL info ({servicedSettlements.Count} locations) to Agent.");
+        return servicedSettlements;
+    }
+
+    // --- PAKET 2: GLOBAL TICARET IPUCU (En Karli Rota) ---
+    public string BuyGlobalTradeRoute(MerchantAgent agent)
+    {
+        // ustteki ile ayni
+        Debug.Log($"<color=magenta>BROKER ({brokerName}):</color> Sold GLOBAL trade route to Agent.");
+        return "Global Market Analysis: Buy Iron in City_3, Sell in Grand_City_1";
     }
 }
 
-// ============================================================
-// BrokerManager: 5 regional broker yonetir
-// ============================================================
+
+// ==============================================================
+// BROKER MANAGER — RegionalBroker kaldirildi
+// Her TrainingArea'nin kendi instance'i var (singleton yok).
+// WorldGenerator tum yerleskeleri ve aktif urunleri buraya kaydeder.
+// MerchantAgent bu scripte localBrokerManager referansiyla erisir.
+// ==============================================================
 public class BrokerManager : MonoBehaviour
 {
-    public static BrokerManager Instance;
-
-    [Header("Maliyet Ayarlari")]
-    public int localInfoCost = 10;
-    public int globalInfoCost = 200;
-    public int tier1Cost = 300;
-    public int tier2Cost = 600;
-
-    [Header("Rota Guncelleme")]
-    public float routeUpdateInterval = 30f;
-
-    [Header("Broker Erisim Yaricapi")]
-    public float brokerRadius = 15f;
-
-    public List<RegionalBroker> brokers = new List<RegionalBroker>();
-
+    [Header("Aktif Urun Listesi (WorldGenerator doldurur)")]
     public List<ItemData> activeItems = new List<ItemData>();
 
-    void Awake() => Instance = this;
+    [Header("Tum Yerleskeler (WorldGenerator doldurur)")]
+    public List<CityController> allSettlements = new List<CityController>();
 
-    void Start()
-    {
-        InvokeRepeating(nameof(UpdateAllRoutes), 5f, routeUpdateInterval);
-    }
+    [Header("Bilgi Maliyetleri")]
+    public int localInfoCost = 50;
+    public int globalInfoCost = 200;
 
-    // WorldGenerator tarafindan cagirilir
-    public void RegisterBroker(string name, Vector3 pos,
-                               List<CityController> cities,
-                               List<CityController> villages)
-    {
-        var broker = new RegionalBroker
-        {
-            brokerName = name,
-            position = pos,
-            cities = cities ?? new List<CityController>(),
-            villages = villages ?? new List<CityController>()
-        };
-        brokers.Add(broker);
+    [Header("Kapasite Yukseltme Maliyetleri")]
+    public int tier1Cost = 2500;
+    public int tier2Cost = 10000;
 
-        // Her yerleşkeye hangi broker'a bağlı olduğunu kaydet
-        foreach (var c in broker.cities)
-            if (c != null) c.assignedBrokerName = name;
-        foreach (var v in broker.villages)
-            if (v != null) v.assignedBrokerName = name;
-
-        Debug.Log($"<color=magenta>[BROKER]</color> {name} kuruldu | " +
-                  $"{broker.cities.Count} sehir + {broker.villages.Count} koy");
-    }
-
-    public void SetActiveItems(List<ItemData> items)
-    {
-        activeItems = items ?? new List<ItemData>();
-    }
-
-    void UpdateAllRoutes()
-    {
-        if (activeItems.Count == 0) return;
-        foreach (var b in brokers)
-            b.RecalculateBestRoute(activeItems);
-    }
-
-    public void ForceUpdateRoutes(List<ItemData> items)
-    {
-        activeItems = items ?? activeItems;
-        UpdateAllRoutes();
-    }
-
-    // En yakin broker
-    public RegionalBroker GetNearestBroker(Vector3 agentPos)
-    {
-        RegionalBroker nearest = null;
-        float minDist = float.MaxValue;
-        foreach (var b in brokers)
-        {
-            float d = Vector3.Distance(agentPos, b.position);
-            if (d < minDist) { minDist = d; nearest = b; }
-        }
-        return nearest;
-    }
-
-    // Local bilgi: en yakin broker'in yerleskeleri
-    public List<CityController> GetLocalInfo(Vector3 agentPos, float radius = -1f)
-    {
-        float r = radius > 0 ? radius : brokerRadius;
-        var broker = brokers.FirstOrDefault(b => b.IsNearby(agentPos, r))
-                     ?? GetNearestBroker(agentPos);
-
-        if (broker == null) return new List<CityController>();
-
-        Debug.Log($"<color=magenta>[BROKER]</color> Local bilgi hazir: " +
-                  $"{broker.AllSettlements.Count} lokasyon");
-        return broker.AllSettlements;
-    }
-
-    // En karli rota
-    public (CityController buy, CityController sell, ItemData item, int profit)
-        GetBestRoute(Vector3 agentPos)
-    {
-        var broker = brokers.FirstOrDefault(b => b.IsNearby(agentPos, brokerRadius))
-                     ?? GetNearestBroker(agentPos);
-
-        if (broker == null || broker.bestBuyCity == null)
-            return (null, null, null, 0);
-
-        return (broker.bestBuyCity, broker.bestSellCity, broker.bestItem, broker.bestProfit);
-    }
-
-    // Eski API uyumu
+    // ----------------------------------------------------------
+    // MALIYET SORGULARI
+    // ----------------------------------------------------------
     public int GetLocalInfoCost() => localInfoCost;
     public int GetGlobalInfoCost() => globalInfoCost;
-    public int GetTierCost(int tier) => tier == 1 ? tier1Cost : tier2Cost;
-
-    public List<CityController> BuyLocalInfo(MerchantAgent agent)
+    public int GetTierCost(int tier)
     {
-        if (agent.currentMoney < localInfoCost) return null;
-        agent.currentMoney -= localInfoCost;
-        return GetLocalInfo(agent.transform.position);
+        if (tier == 1) return tier1Cost;
+        if (tier == 2) return tier2Cost;
+        return int.MaxValue;
     }
 
-    public List<CityController> BuyGlobalInfo(MerchantAgent agent)
+    // ----------------------------------------------------------
+    // YEREL BILGI: Ajana yakin yerleskeleri dondurur
+    // ----------------------------------------------------------
+    public List<CityController> GetLocalInfo(Vector3 agentPos)
     {
-        if (agent.currentMoney < globalInfoCost) return null;
-        agent.currentMoney -= globalInfoCost;
-        return brokers.SelectMany(b => b.AllSettlements).Distinct().ToList();
+        float radius = 120f;
+        return allSettlements
+            .Where(s => s != null && Vector3.Distance(agentPos, s.transform.position) <= radius)
+            .ToList();
+    }
+
+    // ----------------------------------------------------------
+    // GLOBAL BILGI: Tum yerleskeleri dondurur
+    // ----------------------------------------------------------
+    public List<CityController> GetGlobalInfo()
+    {
+        return allSettlements.Where(s => s != null).ToList();
+    }
+
+    // ----------------------------------------------------------
+    // YERLESKE KAYIT (WorldGenerator cagirır)
+    // ----------------------------------------------------------
+    public void RegisterSettlement(CityController city)
+    {
+        if (city != null && !allSettlements.Contains(city))
+            allSettlements.Add(city);
     }
 }

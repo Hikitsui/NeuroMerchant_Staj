@@ -6,7 +6,8 @@ public class CityController : MonoBehaviour
     [Header("Identity & Population")]
     public string cityName;
     public bool isProducer; // True = Fabrika/Köy (Uretir), False = Şehir (Tuketir)
-    public string assignedBrokerName; // Hangi broker cluster'ına ait
+    public string assignedBrokerName; // Hangi broker cluster'ina ait
+    [HideInInspector] public RegionalBroker assignedBroker; // Runtime'da WorldGenerator tarafindan atanir
 
     [Header("Living City Settings")]
     public bool enablePopulationGrowth = false; // <--- Kıtlıkta nüfuslar taban yapmamasi icin (Varsayilan KAPALI)
@@ -36,6 +37,18 @@ public class CityController : MonoBehaviour
     public bool freezeReset = false; // Eger true ise, Episode Reset'te bu sehrin stogu/nufusu sifirlanmaz.
     private int startStockBuffer; // Baslangic stogunu hafizada tutmak icin
     private int startPopBuffer;
+
+    [Header("Dinamik Vergi Ayarları (Köy için)")]
+    [Tooltip("Günlük verginin baseConsumption'a oranı (min-max)")]
+    public Vector2 taxRateRange = new Vector2(0.75f, 1.25f);
+    [Tooltip("Üretimin vergiden fazlası — köyde stok biriksin")]
+    public float productionSurplus = 5f;
+
+    [Header("Haftalık Toplu Sevkiyat (Bulk Tax)")]
+    public bool enableWeeklyBulkTax = true;
+    public int bulkTaxDayInterval = 7;
+    public int bulkTaxAmount = 200;
+    private int lastBulkTaxDay = -1;
 
     // Tier'a göre şehir maxStock
     public static int GetMaxStockForTier(ItemTier tier)
@@ -270,11 +283,14 @@ public class CityController : MonoBehaviour
                     // Debug.Log($"[KERVAN] {cityName} | {item.itemData.itemName} +{supply}");
                 }
             }
+            if (isProducer)
             {
-                // 1. VERGİ — her gün stoktan kesilir, üretimden bağımsız
-                if (sovereignCity != null && item.dailyTax > 0)
+                // 1. DİNAMİK VERGİ — baseConsumption'a endeksli, rastgele çarpanla
+                if (sovereignCity != null)
                 {
-                    int taxAmount = Mathf.Min(item.dailyTax, item.currentStock);
+                    float randomMult = Random.Range(taxRateRange.x, taxRateRange.y);
+                    int dailyTax = Mathf.RoundToInt(item.itemData.dailyBaseConsumption * randomMult);
+                    int taxAmount = Mathf.Min(dailyTax, item.currentStock);
                     if (taxAmount > 0)
                     {
                         item.currentStock -= taxAmount;
@@ -282,11 +298,29 @@ public class CityController : MonoBehaviour
                     }
                 }
 
-                // 2. ÜRETİM — vergi sonrası stok maxStock'un altındaysa üret
+                // 2. ÜRETİM — vergi + surplus kadar üret, maxStock'u geçme
                 if (item.currentStock < item.maxStock)
                 {
-                    int productionAmount = Mathf.RoundToInt(item.dailyProduction * productionMultiplier);
+                    float baseTax = item.itemData.dailyBaseConsumption * ((taxRateRange.x + taxRateRange.y) / 2f);
+                    int productionAmount = Mathf.RoundToInt((baseTax + productionSurplus) * productionMultiplier);
                     item.currentStock = Mathf.Min(item.currentStock + productionAmount, item.maxStock);
+                }
+
+                // 3. HAFTALIK TOPLU SEVKİYAT
+                if (enableWeeklyBulkTax && sovereignCity != null && TimeManager.Instance != null)
+                {
+                    int currentDay = TimeManager.Instance.TotalDays;
+                    if (currentDay > 0 && currentDay % bulkTaxDayInterval == 0 && currentDay != lastBulkTaxDay)
+                    {
+                        lastBulkTaxDay = currentDay;
+                        int bulk = Mathf.Min(bulkTaxAmount, item.currentStock);
+                        if (bulk > 0)
+                        {
+                            item.currentStock -= bulk;
+                            sovereignCity.ReceiveTax(item.itemData, bulk);
+                            Debug.Log($"[BULK TAX] {cityName} → {sovereignCity.cityName} | {item.itemData.itemName} +{bulk}");
+                        }
+                    }
                 }
             }
         }

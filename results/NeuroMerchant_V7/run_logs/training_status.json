@@ -2,49 +2,22 @@
     "MerchantAgent": {
         "checkpoints": [
             {
-                "steps": 36512,
-                "file_path": "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-36512.onnx",
-                "reward": 0.5854719171766192,
-                "creation_time": 1773069952.9943907,
+                "steps": 18048,
+                "file_path": "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-18048.onnx",
+                "reward": -0.38522812724113464,
+                "creation_time": 1773414471.0978677,
                 "auxillary_file_paths": [
-                    "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-36512.pt"
-                ]
-            },
-            {
-                "steps": 494512,
-                "file_path": "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-494512.onnx",
-                "reward": 0.5072292077044646,
-                "creation_time": 1773145743.8401067,
-                "auxillary_file_paths": [
-                    "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-494512.pt"
-                ]
-            },
-            {
-                "steps": 499512,
-                "file_path": "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-499512.onnx",
-                "reward": 0.2853300653398037,
-                "creation_time": 1773229678.1806054,
-                "auxillary_file_paths": [
-                    "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-499512.pt"
-                ]
-            },
-            {
-                "steps": 652024,
-                "file_path": "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-652024.onnx",
-                "reward": 0.9525179187101978,
-                "creation_time": 1773231675.9235005,
-                "auxillary_file_paths": [
-                    "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-652024.pt"
+                    "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-18048.pt"
                 ]
             }
         ],
         "final_checkpoint": {
-            "steps": 652024,
+            "steps": 18048,
             "file_path": "results\\NeuroMerchant_V7\\MerchantAgent.onnx",
-            "reward": 0.9525179187101978,
-            "creation_time": 1773231675.9235005,
+            "reward": -0.38522812724113464,
+            "creation_time": 1773414471.0978677,
             "auxillary_file_paths": [
-                "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-652024.pt"
+                "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-18048.pt"
             ]
         }
     },

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System;
 
 public class TimeManager : MonoBehaviour
@@ -12,6 +12,11 @@ public class TimeManager : MonoBehaviour
     public int currentDay = 1;
     public int currentMonth = 1;
     public int currentYear = 1;
+
+    // Toplam geçen gün sayısı (haftalık bulk tax için)
+    public int TotalDays => (currentYear - 1) * 12 * daysPerMonth
+                          + (currentMonth - 1) * daysPerMonth
+                          + currentDay;
 
     private float timer;
     private int daysPerMonth = 30;
