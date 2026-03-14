@@ -38,6 +38,9 @@ public class MerchantAgent : Agent
     // ----------------------------------------------------------
     // INSPECTOR
     // ----------------------------------------------------------
+    [Header("Debug")]
+    public bool enableDebugLogs = false; // YENİ!
+
     [Header("Ekonomi")]
     public float currentMoney = 1000f;
     public float startingMoney = 2000f;
@@ -47,6 +50,10 @@ public class MerchantAgent : Agent
     public float invalidActionPenalty = -0.001f;
     public float invalidTargetPenalty = -0.05f;
     public float profitRewardMultiplier = 0.01f;
+
+    [Header("Cache")]
+    private List<ItemData> cachedActiveItems = new List<ItemData>();
+    private int cachedLessonForItems = -1;
 
     [Header("Kapasite Sistemi")]
     public int currentTier = 0;
@@ -69,6 +76,7 @@ public class MerchantAgent : Agent
 
     [Header("Episode")]
     public int maxStepsPerEpisode = 15000;
+    private bool brokerActionTakenThisVisit = false;
 
     [Header("Baglantilar")]
     public CurriculumManager curriculumManager;
@@ -132,7 +140,7 @@ public class MerchantAgent : Agent
     private float stepWindowReward = 0f;
     private int stepWindowEpisodes = 0;
     private const int STEP_WINDOW = 50000;
-    private const int WARMUP_STEPS = 10;   // Episode basinda bekleme adimi
+    private const int WARMUP_STEPS = 0;   // Episode basinda bekleme adimi
     private int warmupStepCount = 0;
 
     // ----------------------------------------------------------
@@ -231,6 +239,8 @@ public class MerchantAgent : Agent
 
         bool fullReset = (CompletedEpisodes % 10 == 0);
         foreach (var s in allSettlements) s.ResetCity(fullReset);
+
+        brokerActionTakenThisVisit = false;
 
         // Doygunluk her zaman aktif (Ders 1 itibariyle)
         ApplySaturationSetting();
@@ -373,7 +383,7 @@ public class MerchantAgent : Agent
         {
             // Episode bitti, elindeki mal iin kk ceza
             if (carriedAmount > 0) AddReward(-0.01f);
-            Debug.Log($"<color=orange>[MAXSTEP]</color> Episode bitti | Para:{currentMoney:F0}G | Ders:{currentLesson}");
+            if (enableDebugLogs) Debug.Log($"<color=orange>[MAXSTEP]</color> Episode bitti | Para:{currentMoney:F0}G | Ders:{currentLesson}");
             EndEpisode();
             return;
         }
@@ -392,7 +402,7 @@ public class MerchantAgent : Agent
             lastReportedStep = globalStepCount;
             stepWindowReward = 0f;
             stepWindowEpisodes = 0;
-            Debug.Log($"[Curriculum] Pencere raporlandi | Step:{globalStepCount} | Ort:{avg:F3} | Ders:{currentLesson}");
+            if (enableDebugLogs) Debug.Log($"[Curriculum] Pencere raporlandi | Step:{globalStepCount} | Ort:{avg:F3} | Ders:{currentLesson}");
         }
 
         // Ders 1-3 (omniscient): her adimda tum aktif yerleskelerin hafizasi guncellenir
@@ -481,6 +491,8 @@ public class MerchantAgent : Agent
     {
         if (currentDestination == null) return;
 
+        brokerActionTakenThisVisit = false;
+
         int idx = allSettlements.IndexOf(currentDestination);
         UpdateMemory(idx, currentDestination);
         HandleBrokerAction();
@@ -519,7 +531,7 @@ public class MerchantAgent : Agent
                     lastCargoCost = amount * price;
                     lastBuyCity = currentDestination;
                     AddReward(0.05f);
-                    Debug.Log($"<color=cyan>[BUY]</color> {amount}x {activeItem.itemName} " +
+                    if (enableDebugLogs) Debug.Log($"<color=cyan>[BUY]</color> {amount}x {activeItem.itemName} " +
                               $"({ratio * 100:F0}%) @ {currentDestination.cityName}");
                 }
                 else AddReward(-0.001f);
@@ -551,7 +563,7 @@ public class MerchantAgent : Agent
                     // Kar: +40G=0.4, +120G=1.2, +130G=1.3 (max 1.3 clamp)
                     float reward = Mathf.Clamp(profit * REWARD_FACTOR, 0f, 1.3f);
                     AddReward(reward);
-                    Debug.Log($"<color=green>[SELL]</color> {amountSell}x " +
+                    if (enableDebugLogs) Debug.Log($"<color=green>[SELL]</color> {amountSell}x " +
                               $"({ratio * 100:F0}%) Kar:+{profit:F0}G Odul:{reward:F3}");
                 }
                 else
@@ -559,7 +571,7 @@ public class MerchantAgent : Agent
                     // Zarar: profit bazli ceza, min -0.5 (50G zarar)
                     float penalty = Mathf.Clamp(profit * REWARD_FACTOR, -0.5f, 0f);
                     AddReward(penalty);
-                    Debug.Log($"<color=orange>[SELL-ZARAR]</color> {amountSell}x " +
+                    if (enableDebugLogs) Debug.Log($"<color=orange>[SELL-ZARAR]</color> {amountSell}x " +
                               $"({ratio * 100:F0}%) Zarar:{profit:F0}G Ceza:{penalty:F3}");
                 }
 
@@ -579,7 +591,7 @@ public class MerchantAgent : Agent
         if (currentMoney <= 0)
         {
             // Iflas: buyuk ceza verilir, para sifirlanip episode devam eder
-            Debug.LogWarning($"<color=red>[IFLAS]</color> Para bitti! Son alim: {lastBuyCity?.cityName} | Mal: {carriedAmount}x {carriedItemData?.itemName}");
+            if (enableDebugLogs) Debug.LogWarning($"<color=red>[IFLAS]</color> Para bitti! Son alim: {lastBuyCity?.cityName} | Mal: {carriedAmount}x {carriedItemData?.itemName}");
             AddReward(-1f);
             currentMoney = startingMoney;
             carriedAmount = 0;
@@ -591,7 +603,7 @@ public class MerchantAgent : Agent
         float moneyGoal = 3000f + currentLesson * 1000f;
         if (currentMoney >= moneyGoal)
         {
-            Debug.Log($"<color=yellow>[HEDEF]</color> {currentMoney:F0}G = {moneyGoal:F0}G | Ders:{currentLesson}");
+            if (enableDebugLogs) Debug.Log($"<color=yellow>[HEDEF]</color> {currentMoney:F0}G = {moneyGoal:F0}G | Ders:{currentLesson}");
             AddReward(2f);
             EndEpisode();
         }
@@ -606,6 +618,8 @@ public class MerchantAgent : Agent
 
         // Ders 5'ten once broker aktif degil
         if (currentLesson < LESSON_BROKER_BRANCH) return;
+
+        if (brokerActionTakenThisVisit) return;
 
         switch (pendingBrokerAction)
         {
@@ -632,7 +646,7 @@ public class MerchantAgent : Agent
                         if (i >= 0) UpdateMemory(i, s);
                     }
                     AddReward(0.03f);
-                    Debug.Log($"<color=magenta>[BROKER GLOBAL]</color> -{gCost}G");
+                    if (enableDebugLogs) Debug.Log($"<color=magenta>[BROKER GLOBAL]</color> -{gCost}G");
                 }
                 break;
 
@@ -642,7 +656,7 @@ public class MerchantAgent : Agent
                 {
                     currentMoney -= t1; currentTier = 1; maxCapacity = TierCapacities[1];
                     AddReward(0.5f);
-                    Debug.Log($"<color=yellow>[TIER 1]</color> Kapasite:{maxCapacity}");
+                    if (enableDebugLogs) Debug.Log($"<color=yellow>[TIER 1]</color> Kapasite:{maxCapacity}");
                 }
                 break;
 
@@ -652,10 +666,12 @@ public class MerchantAgent : Agent
                 {
                     currentMoney -= t2; currentTier = 2; maxCapacity = TierCapacities[2];
                     AddReward(1.0f);
-                    Debug.Log($"<color=yellow>[TIER 2]</color> Kapasite:{maxCapacity}");
+                    if (enableDebugLogs) Debug.Log($"<color=yellow>[TIER 2]</color> Kapasite:{maxCapacity}");
                 }
                 break;
         }
+        if (pendingBrokerAction != 0)
+            brokerActionTakenThisVisit = true;
     }
 
     void ExecuteBuyLocalInfo()
@@ -669,7 +685,7 @@ public class MerchantAgent : Agent
             if (i >= 0) UpdateMemory(i, s);
         }
         AddReward(0.02f);
-        Debug.Log($"<color=magenta>[BROKER LOCAL]</color> {list.Count} lokasyon");
+        if (enableDebugLogs) Debug.Log($"<color=magenta>[BROKER LOCAL]</color> {list.Count} lokasyon");
     }
 
     // ==========================================================
@@ -688,7 +704,7 @@ public class MerchantAgent : Agent
             carriedItemData = null;
             lastCargoCost = 0f;
             lastBuyCity = null;
-            Debug.Log($"<color=orange>[CONTRACT]</color> +{reward}G");
+            if (enableDebugLogs) Debug.Log($"<color=orange>[CONTRACT]</color> +{reward}G");
         }
     }
 
@@ -702,27 +718,33 @@ public class MerchantAgent : Agent
     // Ders 6-7: tm 12 rn
     List<ItemData> GetActiveItems()
     {
+        if (cachedLessonForItems == currentLesson && cachedActiveItems.Count > 0)
+            return cachedActiveItems;
+
+        if (itemWheat == null)
+        {
+            Debug.LogError($"<color=red>[{name}] KRİTİK HATA: itemWheat atanmamış!</color>");
+            return new List<ItemData>();
+        }
+
         var items = localBrokerManager?.activeItems;
         if (items == null || items.Count == 0) return new List<ItemData>();
 
+        List<ItemData> result = new List<ItemData>();
+
         if (currentLesson >= LESSON_FULL_PRODUCTS)
-            return items; // 12 rn
+            result = items;
+        else if (currentLesson >= LESSON_MULTI_PRODUCT)
+            result = items.Where(i => i == itemWheat || i == itemIron ||
+                                      i == itemCoal || i == itemCotton).ToList();
+        else
+            result = items.Where(i => i == itemWheat).ToList();
 
-        if (currentLesson >= LESSON_MULTI_PRODUCT)
-        {
-            // 4 temel rn: Wheat, Iron, Coal, Cotton
-            return items.Where(i => i == itemWheat || i == itemIron ||
-                                    i == itemCoal || i == itemCotton).ToList();
-        }
+        // Cache'e kaydet
+        cachedActiveItems = result;
+        cachedLessonForItems = currentLesson;
 
-        // Ders 1: sadece Wheat
-        var wheatList = items.Where(i => i == itemWheat).ToList();
-        if (wheatList.Count == 0 && items.Count > 0)
-        {
-            string wName = (itemWheat != null) ? itemWheat.name : "NULL";
-            Debug.LogWarning("[GetActiveItems] Wheat bulunamadi! activeItems=" + items.Count + " itemWheat=" + wName);
-        }
-        return wheatList;
+        return result;
     }
 
     // Varis yerleskesinde alinabilecek en ucuz rn dner
@@ -876,7 +898,7 @@ public class MerchantAgent : Agent
                 .OrderBy(s => s.isProducer ? 1 : 0)
                 .ToList();
             if (allSettlements.Count > 0)
-                Debug.Log($"[{transform.root.name}] allSettlements yuklendi: {allSettlements.Count} yerleske");
+                if (enableDebugLogs) Debug.Log($"[{transform.root.name}] allSettlements yuklendi: {allSettlements.Count} yerleske");
         }
         else
         {
@@ -885,7 +907,7 @@ public class MerchantAgent : Agent
                 .OrderBy(c => c.isProducer).ThenBy(c => c.name).ToList();
             if (fallback.Count > 0)
                 allSettlements = fallback;
-            Debug.LogWarning($"[{transform.root.name}] BrokerManager bos, fallback: {allSettlements?.Count ?? 0} yerleske");
+            if (enableDebugLogs) Debug.LogWarning($"[{transform.root.name}] BrokerManager bos, fallback: {allSettlements?.Count ?? 0} yerleske");
         }
     }
 

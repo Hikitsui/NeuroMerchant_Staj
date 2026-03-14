@@ -1092,8 +1092,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cbd39a754bca9004b8631fcbacf11bef, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  merchantAgent: {fileID: 1181390393255441783}
-  runId: NeuroMerchant_V7
+  merchantAgent: {fileID: 3714820553649558621}
+  runId: NeuroMerchant_V8
   levelDownThreshold: -0.4
   currentLesson: 0
   lastWindowAvg: 0
@@ -1746,6 +1746,7 @@ MonoBehaviour:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
   MaxStep: 5000
+  enableDebugLogs: 0
   currentMoney: 40
   startingMoney: 2000
   movementPenalty: -0.00005
@@ -2377,6 +2378,7 @@ MonoBehaviour:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
   MaxStep: 5000
+  enableDebugLogs: 0
   currentMoney: 40
   startingMoney: 2000
   movementPenalty: -0.00005
@@ -2411,6 +2413,7 @@ MonoBehaviour:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
   MaxStep: 5000
+  enableDebugLogs: 0
   currentMoney: 40
   startingMoney: 2000
   movementPenalty: -0.00005
@@ -2445,6 +2448,7 @@ MonoBehaviour:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
   MaxStep: 5000
+  enableDebugLogs: 0
   currentMoney: 40
   startingMoney: 2000
   movementPenalty: -0.00005

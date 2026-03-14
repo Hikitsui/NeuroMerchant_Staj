@@ -35,17 +35,16 @@ public class CurriculumManager : MonoBehaviour
     private string SavePath => System.IO.Path.Combine(Application.dataPath, "..", $"curriculum_{runId}.txt");
 
     [Header("Ders Geçiş Eşikleri")]
-    // Index = mevcut ders, değer = o dersten bir üste geçiş eşiği (ders 1'den başlar)
     private static readonly float[] LevelUpThresholds =
     {
-        999f, // index 0 — kullanılmaz (padding)
-        0.85f, // Ders 1 → 2
-        0.82f, // Ders 2 → 3
-        0.80f, // Ders 3 → 4
-        0.78f, // Ders 4 → 5
-        0.75f, // Ders 5 → 6
-        0.72f, // Ders 6 → 7
-        999f,  // Ders 7 = Final
+        0.85f, // [0] Ders 1 → 2
+        0.82f, // [1] Ders 2 → 3
+        0.80f, // [2] Ders 3 → 4
+        0.78f, // [3] Ders 4 → 5
+        0.75f, // [4] Ders 5 → 6
+        0.72f, // [5] Ders 6 → 7
+        999f,  // [6] Ders 7 final (geçiş yok)
+        999f   // [7] Yedek
     };
 
     [Header("Düşüş Eşiği (Tüm Dersler)")]
@@ -86,14 +85,20 @@ public class CurriculumManager : MonoBehaviour
             string txt = File.ReadAllText(SavePath).Trim();
             if (int.TryParse(txt, out int saved))
             {
-                currentLesson = saved;
-                currentUpThreshold = LevelUpThresholds[Mathf.Clamp(currentLesson, 0, 7)];
+                // saved 1-7 arasında olmalı
+                currentLesson = Mathf.Clamp(saved, 1, 7);
+                // Dikkat: currentLesson 1 ise index 0'ı kullan
+                currentUpThreshold = LevelUpThresholds[currentLesson - 1];
                 Debug.Log($"<color=cyan>[Curriculum] Ders yüklendi: {currentLesson}</color>");
             }
         }
         else
         {
-            Debug.Log("[Curriculum] Kayıt bulunamadı, Ders 0'dan başlanıyor.");
+            // Kayıt yoksa Ders 1'den başla
+            currentLesson = 1;
+            currentUpThreshold = LevelUpThresholds[0]; // Ders 1'in eşiği
+            SaveLesson();
+            Debug.Log("[Curriculum] Kayıt bulunamadı, Ders 1'den başlanıyor.");
         }
     }
 
@@ -114,7 +119,7 @@ public class CurriculumManager : MonoBehaviour
 
         windowCountInLesson = lessonWindowAverages.Count;
         lastWindowAvg = avg;
-        currentUpThreshold = LevelUpThresholds[Mathf.Clamp(currentLesson, 0, 7)];
+        currentUpThreshold = LevelUpThresholds[Mathf.Clamp(currentLesson - 1, 0, 6)];
 
         // Kayan pencere ortalaması (son 10)
         float lessonAvg = lessonWindowAverages.Average();
@@ -133,7 +138,7 @@ public class CurriculumManager : MonoBehaviour
     // ==========================================================
     private void EvaluateAndDecide(float lessonAvg)
     {
-        float upThreshold = LevelUpThresholds[Mathf.Clamp(currentLesson, 0, 7)];
+        float upThreshold = LevelUpThresholds[Mathf.Clamp(currentLesson - 1, 0, 6)];
 
         // --- SEVİYE ATLATMA ---
         if (lessonAvg >= upThreshold && currentLesson < 7)
@@ -142,22 +147,18 @@ public class CurriculumManager : MonoBehaviour
             currentLesson++;
             ResetLessonTracking();
             ApplyLessonToAgent();
-
             SaveLesson();
-            Debug.Log($"<color=yellow>🏆 DERS ATLADI! {old} → {currentLesson} " +
-                      $"(Ort: {lessonAvg:F3} ≥ {upThreshold})</color>");
+            Debug.Log($"<color=yellow>🏆 DERS ATLADI! {old} → {currentLesson}</color>");
         }
         // --- SEVİYE DÜŞÜRME ---
-        else if (lessonAvg <= levelDownThreshold && currentLesson > 0)
+        else if (lessonAvg <= levelDownThreshold && currentLesson > 1) // Ders 1'den aşağı düşme
         {
             int old = currentLesson;
             currentLesson--;
             ResetLessonTracking();
             ApplyLessonToAgent();
-
             SaveLesson();
-            Debug.LogWarning($"⚠️ DERS DÜŞTÜ! {old} → {currentLesson} " +
-                             $"(Ort: {lessonAvg:F3} ≤ {levelDownThreshold})");
+            Debug.LogWarning($"⚠️ DERS DÜŞTÜ! {old} → {currentLesson}");
         }
         else
         {

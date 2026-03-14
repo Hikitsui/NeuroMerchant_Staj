@@ -110,8 +110,7 @@ public class CityController : MonoBehaviour
 
     void Update()
     {
-        // her frame fiyat guncellemesi (Debug)
-        UpdateDebugPrices();
+        
     }
 
     void UpdateDebugPrices()
@@ -325,6 +324,7 @@ public class CityController : MonoBehaviour
             }
         }
         UpdatePopulation(allNeedsMet);
+        UpdateDebugPrices();
     }
 
     public void ReceiveTax(ItemData item, int amount)
