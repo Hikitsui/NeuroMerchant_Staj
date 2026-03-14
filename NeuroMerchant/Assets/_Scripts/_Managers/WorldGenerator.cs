@@ -265,42 +265,44 @@ public class WorldGenerator : MonoBehaviour
 
     void CreateBrokerForCluster(List<GameObject> cluster, string brokerName)
     {
-        if (brokerPrefab == null) return;
+        // BrokerManager'a tum cluster yerleskeleri kaydet (RegionalBroker olmasa bile)
+        var bm = GetComponentInParent<BrokerManager>();
+        if (bm == null) bm = transform.root.GetComponentInChildren<BrokerManager>();
 
-        Vector3 centroid = Vector3.zero;
-        foreach (var obj in cluster) centroid += obj.transform.position;
-        centroid /= cluster.Count;
-
-        Vector3 brokerPos = GetNavMeshPos(centroid);
-        if (brokerPos == Vector3.zero) brokerPos = cluster[0].transform.position;
-
-        GameObject brokerObj = Instantiate(brokerPrefab, brokerPos, Quaternion.identity, this.transform);
-        brokerObj.name = brokerName;
-
-        RegionalBroker rb = brokerObj.GetComponent<RegionalBroker>();
-        if (rb != null)
+        List<CityController> ccList = new List<CityController>();
+        foreach (var obj in cluster)
         {
-            rb.position = brokerPos;
+            var cc = obj.GetComponent<CityController>();
+            if (cc == null) continue;
+            ccList.Add(cc);
+            if (bm != null) bm.RegisterSettlement(cc);
+        }
 
-            List<CityController> ccList = new List<CityController>();
-            foreach (var obj in cluster)
+        // Broker prefab varsa olustur (opsiyonel)
+        if (brokerPrefab != null)
+        {
+            Vector3 centroid = Vector3.zero;
+            foreach (var obj in cluster) centroid += obj.transform.position;
+            centroid /= cluster.Count;
+
+            Vector3 brokerPos = GetNavMeshPos(centroid);
+            if (brokerPos == Vector3.zero) brokerPos = cluster[0].transform.position;
+
+            GameObject brokerObj = Instantiate(brokerPrefab, brokerPos, Quaternion.identity, this.transform);
+            brokerObj.name = brokerName;
+
+            RegionalBroker rb = brokerObj.GetComponent<RegionalBroker>();
+            if (rb != null)
             {
-                var cc = obj.GetComponent<CityController>();
-                if (cc == null) continue;
-                ccList.Add(cc);
-                if (cc.isProducer) rb.villages.Add(cc);
-                else rb.cities.Add(cc);
-                cc.assignedBroker = rb;
+                rb.position = brokerPos;
+                foreach (var cc in ccList)
+                {
+                    if (cc.isProducer) rb.villages.Add(cc);
+                    else rb.cities.Add(cc);
+                    cc.assignedBroker = rb;
+                }
+                rb.InitBroker(ccList);
             }
-
-            rb.InitBroker(ccList);
-
-            // BrokerManager'a kaydet
-            var bm = GetComponentInParent<BrokerManager>();
-            if (bm == null) bm = transform.root.GetComponentInChildren<BrokerManager>();
-            // RegionalBroker yerine tum yerleskeleri direkt kaydet
-            if (bm != null)
-                foreach (var cc in ccList) bm.RegisterSettlement(cc);
         }
     }
 

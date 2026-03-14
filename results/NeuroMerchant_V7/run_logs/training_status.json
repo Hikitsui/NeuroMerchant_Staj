@@ -2,22 +2,58 @@
     "MerchantAgent": {
         "checkpoints": [
             {
-                "steps": 18048,
-                "file_path": "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-18048.onnx",
-                "reward": -0.38522812724113464,
-                "creation_time": 1773414471.0978677,
+                "steps": 499512,
+                "file_path": "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-499512.onnx",
+                "reward": 0.27618006790677707,
+                "creation_time": 1773482086.5884311,
                 "auxillary_file_paths": [
-                    "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-18048.pt"
+                    "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-499512.pt"
+                ]
+            },
+            {
+                "steps": 999512,
+                "file_path": "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-999512.onnx",
+                "reward": 0.5333727757361802,
+                "creation_time": 1773483978.6062152,
+                "auxillary_file_paths": [
+                    "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-999512.pt"
+                ]
+            },
+            {
+                "steps": 1499512,
+                "file_path": "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-1499512.onnx",
+                "reward": 1.109433298309644,
+                "creation_time": 1773485831.5569034,
+                "auxillary_file_paths": [
+                    "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-1499512.pt"
+                ]
+            },
+            {
+                "steps": 1999512,
+                "file_path": "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-1999512.onnx",
+                "reward": 0.4270816410058423,
+                "creation_time": 1773487624.4393122,
+                "auxillary_file_paths": [
+                    "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-1999512.pt"
+                ]
+            },
+            {
+                "steps": 2420000,
+                "file_path": "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-2420000.onnx",
+                "reward": null,
+                "creation_time": 1773489124.3553371,
+                "auxillary_file_paths": [
+                    "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-2420000.pt"
                 ]
             }
         ],
         "final_checkpoint": {
-            "steps": 18048,
+            "steps": 2420000,
             "file_path": "results\\NeuroMerchant_V7\\MerchantAgent.onnx",
-            "reward": -0.38522812724113464,
-            "creation_time": 1773414471.0978677,
+            "reward": null,
+            "creation_time": 1773489124.3553371,
             "auxillary_file_paths": [
-                "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-18048.pt"
+                "results\\NeuroMerchant_V7\\MerchantAgent\\MerchantAgent-2420000.pt"
             ]
         }
     },
