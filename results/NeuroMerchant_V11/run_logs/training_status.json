@@ -1,0 +1,56 @@
+{
+    "MerchantAgent": {
+        "checkpoints": [
+            {
+                "steps": 55999868,
+                "file_path": "results\\NeuroMerchant_V11\\MerchantAgent\\MerchantAgent-55999868.onnx",
+                "reward": null,
+                "creation_time": 1774345829.1061318,
+                "auxillary_file_paths": [
+                    "results\\NeuroMerchant_V11\\MerchantAgent\\MerchantAgent-55999868.pt"
+                ]
+            },
+            {
+                "steps": 56499692,
+                "file_path": "results\\NeuroMerchant_V11\\MerchantAgent\\MerchantAgent-56499692.onnx",
+                "reward": -14.999000787734985,
+                "creation_time": 1774346804.9772532,
+                "auxillary_file_paths": [
+                    "results\\NeuroMerchant_V11\\MerchantAgent\\MerchantAgent-56499692.pt"
+                ]
+            },
+            {
+                "steps": 56999740,
+                "file_path": "results\\NeuroMerchant_V11\\MerchantAgent\\MerchantAgent-56999740.onnx",
+                "reward": null,
+                "creation_time": 1774347783.0515227,
+                "auxillary_file_paths": [
+                    "results\\NeuroMerchant_V11\\MerchantAgent\\MerchantAgent-56999740.pt"
+                ]
+            },
+            {
+                "steps": 57490428,
+                "file_path": "results\\NeuroMerchant_V11\\MerchantAgent\\MerchantAgent-57490428.onnx",
+                "reward": null,
+                "creation_time": 1774348755.507356,
+                "auxillary_file_paths": [
+                    "results\\NeuroMerchant_V11\\MerchantAgent\\MerchantAgent-57490428.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 57490428,
+            "file_path": "results\\NeuroMerchant_V11\\MerchantAgent.onnx",
+            "reward": null,
+            "creation_time": 1774348755.507356,
+            "auxillary_file_paths": [
+                "results\\NeuroMerchant_V11\\MerchantAgent\\MerchantAgent-57490428.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.30.0",
+        "torch_version": "2.7.1+cu118"
+    }
+}

@@ -67,6 +67,17 @@ public class MerchantAgent : Agent
     private CityController lastBuyCity;
     private CityController lastSellCity;
 
+    [Header("Trade Planning")]
+    private float lastExpectedProfit;
+    private float lastExpectedSellPrice;
+    private int lastTravelDays;
+    private ItemData lastPlannedItem;
+    private CityController lastPlannedBuyCity;
+    private CityController lastPlannedSellCity;
+    private float lastBuyPrice;
+    private float averageBuyPrice;
+    private CityController lastVisitedCity;
+
     [Header("Training  rn Listesi (Ders sirasina gre)")]
     public ItemData itemWheat;    // Ders 1+ (baslangic urunu)
     public ItemData itemIron;     // Ders 2+ (coklu urun)
@@ -82,6 +93,7 @@ public class MerchantAgent : Agent
     public CurriculumManager curriculumManager;
     // Multi-env: Inspector'dan atanmazsa parent Transform'dan otomatik bulunur
     public BrokerManager localBrokerManager;
+    private float deneme;
 
     // ----------------------------------------------------------
     // MIMARI SABITLER
@@ -208,6 +220,18 @@ public class MerchantAgent : Agent
             stepWindowEpisodes += 1;
         }
 
+        switch (currentLesson)
+        {
+            case 1: maxStepsPerEpisode = 12000; break; // Tek ürün, basit
+            case 2: maxStepsPerEpisode = 12500; break; // Çoklu ürün
+            case 3: maxStepsPerEpisode = 13000; break; // Branch kontrolü
+            case 4: maxStepsPerEpisode = 135000; break; // Fog of war (keşfetmek zaman alır)
+            case 5: maxStepsPerEpisode = 14000; break; // Broker
+            case 6: maxStepsPerEpisode = 14500; break; // Tam ekonomi
+            case 7: maxStepsPerEpisode = 15000; break; // Kriz + kontrat
+            default: maxStepsPerEpisode = 14000; break;
+        }
+
         // Episode degiskenlerini sifirla
         currentMoney = startingMoney;
         carriedAmount = 0;
@@ -275,7 +299,7 @@ public class MerchantAgent : Agent
         sensor.AddObservation(0f); // padding 21
         sensor.AddObservation(0f); // padding 22
 
-        // ---- BLOK B: YERLESKE HAFIZASI (45 x 5 = 225) ----
+        // ---- BLOK B: YERLESKE HAFIZASI (45 x 27 = 1215) ----
         for (int i = 0; i < MAX_SETTLEMENTS; i++)
         {
             if (IsSettlementActive(i) && i < allSettlements.Count)
@@ -285,25 +309,32 @@ public class MerchantAgent : Agent
                 float dist = Vector3.Distance(transform.position, s.transform.position);
 
                 sensor.AddObservation(dist / 500f);
-                sensor.AddObservation(mem.lastKnownPrice / 500f);
-                sensor.AddObservation(mem.lastKnownStockRatio);
 
-                // Ders 1-3: bilgi taze, age=0 (omniscient)
-                // Ders 4+: gercek hafiza yasi gonderilir
-                float age = (currentLesson >= LESSON_FOG_OF_WAR)
-                    ? mem.GetInformationAge() / 300f
-                    : 0f;
-                sensor.AddObservation(age);
+                // 12 ürünün fiyatını ve 12 ürünün stoğunu tek tek sensöre veriyoruz
+                for (int p = 0; p < 12; p++) sensor.AddObservation(mem.knownPrices[p] / 500f);
+                for (int k = 0; k < 12; k++) sensor.AddObservation(mem.knownStocks[k]);
+
+                // === V12 LSTM ZAMAN ALGISI OPTİMİZASYONU ===
+                // Ajanın beynine "zamanın" ne kadar hızlı aktığını öğretiyoruz.
+                // Sınırı 30 gün (1 Ay) yaptık: 0 = Yepyeni bilgi, 1 = Tamamen Bayat (veya hiç gidilmemiş)
+                float normalizedAge = 0f;
+                if (currentLesson >= 4) // Ders 4 (Sis Perdesi) ve sonrası
+                {
+                    float rawAge = mem.GetInformationAge();
+                    normalizedAge = Mathf.Clamp01(rawAge / 30f);
+                }
+                sensor.AddObservation(normalizedAge);
+                // ===========================================
 
                 sensor.AddObservation(s.isProducer ? 1f : 0f);
             }
             else
             {
-                sensor.AddObservation(0f);
-                sensor.AddObservation(0f);
-                sensor.AddObservation(0f);
-                sensor.AddObservation(0f);
-                sensor.AddObservation(0f);
+                sensor.AddObservation(0f); // dist
+                for (int p = 0; p < 12; p++) sensor.AddObservation(0f); // prices
+                for (int k = 0; k < 12; k++) sensor.AddObservation(0f); // stocks
+                sensor.AddObservation(0f); // age
+                sensor.AddObservation(0f); // isProducer
             }
         }
 
@@ -410,14 +441,30 @@ public class MerchantAgent : Agent
         if (currentLesson < LESSON_FOG_OF_WAR)
         {
             int active = ActiveSettlementCount();
+            var activeItems = localBrokerManager?.activeItems;
+
             for (int i = 0; i < active && i < allSettlements.Count; i++)
             {
                 var s = allSettlements[i];
-                var item = s.marketItems.Find(x => x.itemData == (carriedItemData ?? itemWheat));
-                float price = (item != null) ? s.GetPrice(item.itemData) : 0f;
-                float stock = (item != null && item.maxStock > 0)
-                    ? (float)item.currentStock / item.maxStock : 0f;
-                memoryMap[i].UpdateAlwaysFresh(price, stock);
+                float[] prices = new float[12];
+                float[] stocks = new float[12];
+
+                for (int p = 0; p < 12; p++)
+                {
+                    if (activeItems != null && p < activeItems.Count)
+                    {
+                        var itemData = activeItems[p];
+                        var mi = s.marketItems.Find(x => x.itemData == itemData);
+                        prices[p] = (mi != null) ? s.GetPrice(itemData) : 0f;
+                        stocks[p] = (mi != null && mi.maxStock > 0) ? (float)mi.currentStock / mi.maxStock : 0f;
+                    }
+                    else
+                    {
+                        prices[p] = 0f;
+                        stocks[p] = 0f;
+                    }
+                }
+                memoryMap[i].UpdateAlwaysFresh(prices, stocks);
             }
         }
 
@@ -484,8 +531,21 @@ public class MerchantAgent : Agent
         }
     }
 
+    int GetLastKnownPrice(CityController city, ItemData item)
+    {
+        int idx = allSettlements.IndexOf(city);
+        if (idx >= 0 && memoryMap.ContainsKey(idx))
+        {
+            var mem = memoryMap[idx];
+            int itemIndex = GetActiveItems().IndexOf(item);
+            if (itemIndex >= 0 && itemIndex < 12)
+                return Mathf.RoundToInt(mem.knownPrices[itemIndex]);
+        }
+        return 0;
+    }
+
     // ==========================================================
-    // VARIS - TICARET
+    // VARIS - TICARET (RL DOSTU + DETAYLI LOG VERSİYONU)
     // ==========================================================
     void HandleArrivalInteraction()
     {
@@ -500,8 +560,11 @@ public class MerchantAgent : Agent
         if (currentLesson >= LESSON_EXT_SIGNALS)
             CheckContractCompletion();
 
-        // Derse gore en karli urunu sec
+        // Derse gore o an bulunulan sehirdeki en karli urunu sec
         ItemData activeItem = GetBestAvailableItem(currentDestination);
+
+        // Şehir hafızasını güncelle
+        lastVisitedCity = currentDestination;
 
         // --- ALIM: kargo bos, uygun urun varsa al ---
         if (carriedAmount == 0)
@@ -511,34 +574,63 @@ public class MerchantAgent : Agent
             var marketItem = currentDestination.marketItems.Find(x => x.itemData == activeItem);
             if (marketItem != null && marketItem.currentStock > 0)
             {
-                int price = currentDestination.GetPrice(activeItem);
+                int alisFiyati = currentDestination.GetPrice(activeItem);
                 float ratio = AmountRatios[pendingBuyAmountIndex];
                 int wantToBuy = Mathf.Max(1, Mathf.RoundToInt(maxCapacity * ratio));
 
-                // Köyde vergi rezervi bırak — satılabilir stok = currentStock - dailyTax
                 int availableStock = currentDestination.isProducer
                     ? Mathf.Max(0, marketItem.currentStock - marketItem.dailyTax)
                     : marketItem.currentStock;
 
-                int amount = Mathf.Min((int)(currentMoney / price), wantToBuy, availableStock);
+                int amount = Mathf.Min((int)(currentMoney / alisFiyati), wantToBuy, availableStock);
 
                 if (amount > 0)
                 {
-                    currentMoney -= amount * price;
+                    currentMoney -= amount * alisFiyati;
                     marketItem.currentStock -= amount;
                     carriedAmount = amount;
                     carriedItemData = activeItem;
-                    lastCargoCost = amount * price;
+                    lastCargoCost = amount * alisFiyati;
                     lastBuyCity = currentDestination;
-                    AddReward(0.05f);
-                    if (enableDebugLogs) Debug.Log($"<color=cyan>[BUY]</color> {amount}x {activeItem.itemName} " +
-                              $"({ratio * 100:F0}%) @ {currentDestination.cityName}");
+                    averageBuyPrice = (float)lastCargoCost / carriedAmount;
+
+                    AddReward(0.05f); // Başarılı alım ödülü
+
+                    // --- DETAYLI GÜVENLİ LOG (AJANA MÜDAHALE ETMEZ) ---
+                    if (enableDebugLogs)
+                    {
+                        // Ajanın hafızasındaki en iyi satış yerini sadece ekrana yazdırmak için buluyoruz
+                        CityController bestExpectedCity = null;
+                        int bestExpectedPrice = 0;
+                        for (int i = 0; i < allSettlements.Count; i++)
+                        {
+                            if (!IsSettlementActive(i) || allSettlements[i] == currentDestination) continue;
+                            int kPrice = GetLastKnownPrice(allSettlements[i], activeItem);
+                            if (kPrice > bestExpectedPrice)
+                            {
+                                bestExpectedPrice = kPrice;
+                                bestExpectedCity = allSettlements[i];
+                            }
+                        }
+
+                        string hedefStr = bestExpectedCity != null
+                            ? $"{bestExpectedCity.cityName} (Beklenen: {bestExpectedPrice}G)"
+                            : "Bilinmiyor/Hafıza Boş";
+
+                        Debug.Log($"<color=cyan>========== [ALIM YAPILDI & PLAN] ==========</color>\n" +
+                                  $"<color=cyan>📍 Nereden Alındı:</color> {currentDestination.cityName}\n" +
+                                  $"<color=cyan>📦 Ne Alındı:</color> {amount}x {activeItem.itemName}\n" +
+                                  $"<color=cyan>💰 Alış Fiyatı:</color> {alisFiyati} G/birim\n" +
+                                  $"<color=cyan>💸 Toplam Maliyet:</color> {amount * alisFiyati} G\n" +
+                                  $"<color=cyan>🎯 Planlanan Satış Yeri:</color> {hedefStr}\n" +
+                                  $"<color=cyan>===========================================</color>");
+                    }
                 }
                 else AddReward(-0.001f);
             }
             else AddReward(-0.001f);
         }
-        // --- SATIS: kargo dolu, ayni sehirde satma ---
+        // --- SATIS: kargo dolu ---
         else
         {
             if (currentDestination == lastBuyCity) { AddReward(-0.05f); return; }
@@ -549,30 +641,46 @@ public class MerchantAgent : Agent
                 float ratio = AmountRatios[pendingSellAmountIndex];
                 int amountSell = Mathf.Max(1, Mathf.RoundToInt(carriedAmount * ratio));
                 float costPortion = lastCargoCost * ((float)amountSell / Mathf.Max(carriedAmount, 1));
+                int satisFiyatiBirim = currentDestination.GetPrice(carriedItemData);
+                int satisFiyatiToplam = currentDestination.GetBulkSellValue(carriedItemData, amountSell);
+                float profit = satisFiyatiToplam - costPortion;
+                float alisFiyatiOrtalama = lastCargoCost / carriedAmount;
 
-                int sellValue = currentDestination.GetBulkSellValue(carriedItemData, amountSell);
-                float profit = sellValue - costPortion;
-
-                currentMoney += sellValue;
+                currentMoney += satisFiyatiToplam;
                 targetItem.currentStock += amountSell;
                 carriedAmount -= amountSell;
                 lastCargoCost -= costPortion;
 
+                // --- DETAYLI GÜVENLİ LOG (SONUÇLAR) ---
+                if (enableDebugLogs)
+                {
+                    string karZararRengi = profit > 0 ? "green" : "red";
+                    string logMessage = $"<color={karZararRengi}>========== [GERÇEKLEŞEN SATIŞ] ==========</color>\n" +
+                                        $"<color={karZararRengi}>📍 Nerede Satıldı:</color> {currentDestination.cityName}\n" +
+                                        $"<color={karZararRengi}>📦 Satılan Miktar:</color> {amountSell}x {carriedItemData?.itemName}\n" +
+                                        $"<color={karZararRengi}>📉 Ortalama Maliyet:</color> {alisFiyatiOrtalama:F1} G/birim\n" +
+                                        $"<color={karZararRengi}>📈 Gerçek Satış Fiyatı:</color> {satisFiyatiBirim} G/birim\n" +
+                                        $"<color={karZararRengi}>💵 Satış Geliri (Bu parti):</color> {satisFiyatiToplam} G\n" +
+                                        $"<color={karZararRengi}>📊 GERÇEK KAR/ZARAR:</color> {profit:F0} G\n";
+                    if (carriedAmount > 0)
+                    {
+                        float kalanAlisFiyatiOrt = lastCargoCost / carriedAmount;
+                        logMessage += $"<color={karZararRengi}>📦 Kalan Mal:</color> {carriedAmount} birim (Ort. alış: {kalanAlisFiyatiOrt:F1}G)\n";
+                    }
+                    logMessage += $"<color={karZararRengi}>=========================================</color>";
+                    Debug.Log(logMessage);
+                }
+
+                // Kar/Zarara göre ödül/ceza
                 if (profit > 0)
                 {
-                    // Kar: +40G=0.4, +120G=1.2, +130G=1.3 (max 1.3 clamp)
-                    float reward = Mathf.Clamp(profit * REWARD_FACTOR, 0f, 1.3f);
+                    float reward = Mathf.Clamp(profit * REWARD_FACTOR, 0f, 1.5f);
                     AddReward(reward);
-                    if (enableDebugLogs) Debug.Log($"<color=green>[SELL]</color> {amountSell}x " +
-                              $"({ratio * 100:F0}%) Kar:+{profit:F0}G Odul:{reward:F3}");
                 }
                 else
                 {
-                    // Zarar: profit bazli ceza, min -0.5 (50G zarar)
-                    float penalty = Mathf.Clamp(profit * REWARD_FACTOR, -0.5f, 0f);
+                    float penalty = Mathf.Clamp(profit * REWARD_FACTOR, -1.5f, 0f);
                     AddReward(penalty);
-                    if (enableDebugLogs) Debug.Log($"<color=orange>[SELL-ZARAR]</color> {amountSell}x " +
-                              $"({ratio * 100:F0}%) Zarar:{profit:F0}G Ceza:{penalty:F3}");
                 }
 
                 if (carriedAmount <= 0)
@@ -582,25 +690,24 @@ public class MerchantAgent : Agent
                     lastCargoCost = 0f;
                     lastSellCity = currentDestination;
                     lastBuyCity = null;
+                    averageBuyPrice = 0f;
                 }
-                return; // Satis yapildi, ayni varista alim yapma
+                return;
             }
             else AddReward(-0.001f);
         }
 
+        // İflas kontrolü
         if (currentMoney <= 0)
         {
-            // Iflas: buyuk ceza verilir, para sifirlanip episode devam eder
             if (enableDebugLogs) Debug.LogWarning($"<color=red>[IFLAS]</color> Para bitti! Son alim: {lastBuyCity?.cityName} | Mal: {carriedAmount}x {carriedItemData?.itemName}");
-            AddReward(-1f);
-            currentMoney = startingMoney;
-            carriedAmount = 0;
-            carriedItemData = null;
-            lastBuyCity = null;
-            lastSellCity = null;
+            AddReward(-2f);
+            EndEpisode();
+            return;
         }
-        // Hedef para: her ders 1000G artar (Ders 1: 4000G, Ders 7: 10000G)
-        float moneyGoal = 3000f + currentLesson * 1000f;
+
+        // Hedef para kontrolü
+        float moneyGoal = 2000f + currentLesson * 1000f;
         if (currentMoney >= moneyGoal)
         {
             if (enableDebugLogs) Debug.Log($"<color=yellow>[HEDEF]</color> {currentMoney:F0}G = {moneyGoal:F0}G | Ders:{currentLesson}");
@@ -708,6 +815,7 @@ public class MerchantAgent : Agent
         }
     }
 
+
     // ==========================================================
     // DERS BAZLI YARDIMCILAR
     // ==========================================================
@@ -747,17 +855,13 @@ public class MerchantAgent : Agent
         return result;
     }
 
-    // Varis yerleskesinde alinabilecek en ucuz rn dner
-    // Koy mu sehir mi fark etmez  stok varsa ve ucuzsa al
     ItemData GetBestAvailableItem(CityController city)
     {
-        // Son satis yaptigin sehirden hemen alim yapma
         if (city == lastSellCity) return null;
 
         var items = GetActiveItems();
         ItemData best = null;
-        float bestProfit = float.MinValue;
-        int active = ActiveSettlementCount();
+        float bestDealScore = float.MinValue;
 
         foreach (var item in items)
         {
@@ -767,7 +871,6 @@ public class MerchantAgent : Agent
             int buyPrice = city.GetPrice(item);
             if (buyPrice <= 0) continue;
 
-            // Köyde vergi rezervi bırak
             int availableStock = city.isProducer
                 ? Mathf.Max(0, mi.currentStock - mi.dailyTax)
                 : mi.currentStock;
@@ -775,31 +878,29 @@ public class MerchantAgent : Agent
             int affordableAmount = Mathf.Min((int)(currentMoney / buyPrice), availableStock, maxCapacity);
             if (affordableAmount <= 0) continue;
 
-            float totalCost = affordableAmount * buyPrice;
-
-            // Bu miktar icin en yuksek satis gelirini veren sehri bul
-            float bestSellValue = 0f;
-            for (int i = 0; i < active && i < allSettlements.Count; i++)
+            // YENİ: Köyler için özel fırsat skoru
+            float dealScore;
+            if (city.isProducer)
             {
-                var sellCity = allSettlements[i];
-                if (sellCity == city) continue; // Aldığın yerden satma
-                if (sellCity == lastBuyCity) continue;
+                // Köylerde: Düşük fiyat = yüksek fırsat
+                // basePrice 50 ise, buyPrice 25 → priceFactor 0.75, buyPrice 10 → priceFactor 0.9
+                float priceFactor = 1f - (buyPrice / (item.basePrice * 2f));
+                priceFactor = Mathf.Clamp01(priceFactor);
+                float stockFactor = (float)mi.currentStock / mi.maxStock;
+                dealScore = priceFactor * 0.7f + stockFactor * 0.3f;
 
-                var si = sellCity.marketItems.Find(x => x.itemData == item);
-                if (si == null) continue;
-
-                float sellVal = sellCity.GetBulkSellValue(item, affordableAmount);
-                if (sellVal > bestSellValue) bestSellValue = sellVal;
+                if (enableDebugLogs && city.isProducer)
+                    Debug.Log($"🏡 KÖY FIRSATI: {city.cityName} | {item.itemName} | Fiyat:{buyPrice}G | Stok:{mi.currentStock}/{mi.maxStock} | Skor:{dealScore:F2}");
+            }
+            else
+            {
+                // Şehirlerde: Stok fazlası = fırsat (eski mantık)
+                dealScore = (float)mi.currentStock / mi.maxStock;
             }
 
-            float netProfit = bestSellValue - totalCost;
-
-            // Net kar yoksa bu urunu / kaynagi atla
-            if (netProfit <= 0) continue;
-
-            if (netProfit > bestProfit)
+            if (dealScore > bestDealScore)
             {
-                bestProfit = netProfit;
+                bestDealScore = dealScore;
                 best = item;
             }
         }
@@ -835,17 +936,33 @@ public class MerchantAgent : Agent
     void UpdateMemory(int idx, CityController settle)
     {
         if (!memoryMap.ContainsKey(idx)) return;
-        // Ders 1-3: hafiza anliktir (omniscient)
-        // Ders 4+: sadece ziyarette guncellenir (fog of war)
-        var item = settle.marketItems.Find(x => x.itemData == (carriedItemData ?? itemWheat));
-        float price = (item != null) ? settle.GetPrice(item.itemData) : 0f;
-        float stock = (item != null && item.maxStock > 0)
-            ? (float)item.currentStock / item.maxStock : 0f;
+
+        float[] prices = new float[12];
+        float[] stocks = new float[12];
+
+        var activeItems = localBrokerManager?.activeItems;
+
+        for (int i = 0; i < 12; i++)
+        {
+            // Eğer ürün aktifse ve şehirde varsa kaydet, yoksa 0 yaz
+            if (activeItems != null && i < activeItems.Count)
+            {
+                var itemData = activeItems[i];
+                var mi = settle.marketItems.Find(x => x.itemData == itemData);
+                prices[i] = (mi != null) ? settle.GetPrice(itemData) : 0f;
+                stocks[i] = (mi != null && mi.maxStock > 0) ? (float)mi.currentStock / mi.maxStock : 0f;
+            }
+            else
+            {
+                prices[i] = 0f;
+                stocks[i] = 0f;
+            }
+        }
 
         if (currentLesson < LESSON_FOG_OF_WAR)
-            memoryMap[idx].UpdateAlwaysFresh(price, stock); // Omniscient: yas=0
+            memoryMap[idx].UpdateAlwaysFresh(prices, stocks);
         else
-            memoryMap[idx].Update(price, stock);            // Gerek zaman
+            memoryMap[idx].Update(prices, stocks);
     }
 
     CityController GetBestSellCity()
@@ -865,23 +982,8 @@ public class MerchantAgent : Agent
         return best;
     }
 
-    /*
-    RegionalBroker GetNearestBroker(float maxDist)
-    {
-        if (localBrokerManager == null) return null;
-        RegionalBroker nearest = null;
-        float minDist = maxDist;
-        foreach (var b in localBrokerManager.brokers)
-        {
-            float d = Vector3.Distance(transform.position, b.position);
-            if (d < minDist) { minDist = d; nearest = b; }
-        }
-        return nearest;
-    }
-    */
-
     // ==========================================================
-    // YERLESKE YUKLEME (Her episode basinda cagrilir)
+    // YERLESKE YUKLEME (GÜNCELLENMİŞ FERMUAR MODELİ)
     // ==========================================================
     void LoadSettlements()
     {
@@ -890,24 +992,37 @@ public class MerchantAgent : Agent
         if (localBrokerManager == null)
             localBrokerManager = transform.root.GetComponentInChildren<BrokerManager>();
 
+        List<CityController> sourceList = new List<CityController>();
+
         if (localBrokerManager != null && localBrokerManager.allSettlements.Count > 0)
         {
-            // Sehirler once, koyler sonra (agent ilk hedeflerini sehirlerden secsin)
-            allSettlements = localBrokerManager.allSettlements
-                .Where(s => s != null)
-                .OrderBy(s => s.isProducer ? 1 : 0)
-                .ToList();
-            if (allSettlements.Count > 0)
-                if (enableDebugLogs) Debug.Log($"[{transform.root.name}] allSettlements yuklendi: {allSettlements.Count} yerleske");
+            sourceList = localBrokerManager.allSettlements.Where(s => s != null).ToList();
         }
         else
         {
-            var fallback = transform.root.GetComponentsInChildren<CityController>()
+            sourceList = transform.root.GetComponentsInChildren<CityController>()
                 .Where(c => !c.name.Contains("Guild") && !c.name.Contains("Broker"))
-                .OrderBy(c => c.isProducer).ThenBy(c => c.name).ToList();
-            if (fallback.Count > 0)
-                allSettlements = fallback;
-            if (enableDebugLogs) Debug.LogWarning($"[{transform.root.name}] BrokerManager bos, fallback: {allSettlements?.Count ?? 0} yerleske");
+                .ToList();
+        }
+
+        if (sourceList.Count > 0)
+        {
+            // Şehirleri (Tüketici) ve Köyleri (Üretici) ayır
+            var cities = sourceList.Where(s => !s.isProducer).ToList();
+            var villages = sourceList.Where(s => s.isProducer).ToList();
+
+            allSettlements = new List<CityController>();
+            int maxCount = Mathf.Max(cities.Count, villages.Count);
+
+            // Fermuar Yöntemi: 1 Şehir, 1 Köy, 1 Şehir, 1 Köy...
+            for (int i = 0; i < maxCount; i++)
+            {
+                if (i < cities.Count) allSettlements.Add(cities[i]);
+                if (i < villages.Count) allSettlements.Add(villages[i]);
+            }
+
+            if (enableDebugLogs)
+                Debug.Log($"[{transform.root.name}] allSettlements yuklendi: {allSettlements.Count} yerleske (Fermuar Modeli)");
         }
     }
 
@@ -937,7 +1052,9 @@ public class MerchantAgent : Agent
     {
         if (TimeManager.Instance != null) TimeManager.Instance.OnNewDay -= OnNewDay;
     }
+    
 }
+
 
 // ==========================================================
 // HAFIZA SINIFI
@@ -945,25 +1062,32 @@ public class MerchantAgent : Agent
 [System.Serializable]
 public class SettlementMemory
 {
-    public float lastKnownPrice = 0f;
-    public float lastKnownStockRatio = 0f;
+    public float[] knownPrices = new float[12];
+    public float[] knownStocks = new float[12];
     public float lastVisitTime = -999f;
 
-    // Ders 1-3 (omniscient): zaman damgasi olmadan anlik guncelleme
-    public void UpdateAlwaysFresh(float price, float stockRatio)
+    // Ders 1-3 (omniscient)
+    public void UpdateAlwaysFresh(float[] prices, float[] stocks)
     {
-        lastKnownPrice = price;
-        lastKnownStockRatio = stockRatio;
-        lastVisitTime = 0f; // Omniscient - yas her zaman 0
+        for (int i = 0; i < 12; i++)
+        {
+            knownPrices[i] = prices[i];
+            knownStocks[i] = stocks[i];
+        }
+        lastVisitTime = 0f;
     }
 
-    // Ders 4+ (fog of war): gercek zaman damgasiyla guncelleme
-    public void Update(float price, float stockRatio)
+    // Ders 4+ (fog of war)
+    public void Update(float[] prices, float[] stocks)
     {
-        lastKnownPrice = price;
-        lastKnownStockRatio = stockRatio;
+        for (int i = 0; i < 12; i++)
+        {
+            knownPrices[i] = prices[i];
+            knownStocks[i] = stocks[i];
+        }
         lastVisitTime = Time.time;
     }
 
     public float GetInformationAge() => Mathf.Max(0f, Time.time - lastVisitTime);
 }
+

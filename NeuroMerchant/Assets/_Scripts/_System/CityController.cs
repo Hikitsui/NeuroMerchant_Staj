@@ -33,6 +33,9 @@ public class CityController : MonoBehaviour
     public CityController sovereignCity;
     public List<CityController> satelliteVillages = new List<CityController>();
 
+    [Header("Köy Ayarları")]
+    public bool enableVillageConsumption = false; // Köyler tüketim yapmasın
+
     // --- ML-AGENTS ICIN EKLEME: RESETLEME ---
     public bool freezeReset = false; // Eger true ise, Episode Reset'te bu sehrin stogu/nufusu sifirlanmaz.
     private int startStockBuffer; // Baslangic stogunu hafizada tutmak icin
@@ -244,18 +247,20 @@ public class CityController : MonoBehaviour
 
         foreach (var item in marketItems)
         {
-            // TÜKETİM: x = dailyBaseConsumption, ratio = pop/300
-            // pop=150→x/2 | pop=300→x | pop=600→3x/2  (clamp: 0.5–1.5)
-            float popRatio = Mathf.Clamp(population / 300f, 0.5f, 1.5f);
-            int totalConsumption = Mathf.Max(1, Mathf.RoundToInt(item.itemData.dailyBaseConsumption * popRatio * consumptionMultiplier));
-            item.lastDailyConsumption = totalConsumption;
-
-            if (item.currentStock >= totalConsumption)
-                item.currentStock -= totalConsumption;
-            else
+            // --- TÜKETİM: Sadece şehirlerde ve village consumption açıksa ---
+            if (!isProducer || (isProducer && enableVillageConsumption))
             {
-                item.currentStock = 0;
-                allNeedsMet = false;
+                float popRatio = Mathf.Clamp(population / 300f, 0.5f, 1.5f);
+                int totalConsumption = Mathf.Max(1, Mathf.RoundToInt(item.itemData.dailyBaseConsumption * popRatio * consumptionMultiplier));
+                item.lastDailyConsumption = totalConsumption;
+
+                if (item.currentStock >= totalConsumption)
+                    item.currentStock -= totalConsumption;
+                else
+                {
+                    item.currentStock = 0;
+                    allNeedsMet = false;
+                }
             }
 
             // KERVAN TAKVİYESİ — sadece şehirlerde (tüketici), stok kritik altındaysa
@@ -317,7 +322,7 @@ public class CityController : MonoBehaviour
                         {
                             item.currentStock -= bulk;
                             sovereignCity.ReceiveTax(item.itemData, bulk);
-                            Debug.Log($"[BULK TAX] {cityName} → {sovereignCity.cityName} | {item.itemData.itemName} +{bulk}");
+                            //Debug.Log($"[BULK TAX] {cityName} → {sovereignCity.cityName} | {item.itemData.itemName} +{bulk}");
                         }
                     }
                 }
