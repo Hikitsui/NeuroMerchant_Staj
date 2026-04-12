@@ -2,12 +2,18 @@
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
+using System.Collections;
 
 // ==============================================================
-// CURRICULUM MANAGER — ZORLAŞTIRILMIŞ VE STABİLİZE EDİLMİŞ VERSİYON
+// CURRICULUM MANAGER — TURNUVA MODU İÇİN DÜZELTİLMİŞ
 // ==============================================================
 public class CurriculumManager : MonoBehaviour
 {
+    public static CurriculumManager Instance;
+
+    [Header("Mod Ayarı")]
+    public bool isTrainingMode = true; // ❗ Turnuva sahnesinde FALSE olmalı
+
     [Header("Referans")]
     public MerchantAgent merchantAgent;
 
@@ -16,25 +22,16 @@ public class CurriculumManager : MonoBehaviour
 
     private string SavePath => System.IO.Path.Combine(Application.dataPath, "..", $"curriculum_{runId}.txt");
 
-    [Header("Ders Geçiş Eşikleri (Zorlaştırılmış)")]
+    [Header("Ders Geçiş Eşikleri")]
     private static readonly float[] LevelUpThresholds =
     {
-        1.30f, // [0] Ders 1 → 2 (Sadece Wheat ile istikrarlı kar kanıtlanmalı)
-        1.50f, // [1] Ders 2 → 3 (Çoklu ürünlerde hata payı az olmalı)
-        1.80f, // [2] Ders 3 → 4 (Discrete branch kontrolünü tam çözmeli)
-        2.00f, // [3] Ders 4 → 5 (Sis perdesi ve hafıza kullanımında stabilite)
-        1.90f, // [4] Ders 5 → 6 (Broker kullanımı)
-        1.80f, // [5] Ders 6 → 7 (Tam Ekonomi)
-        999f,  // [6] Final
-        999f   // [7] Yedek
+        1.30f, 1.50f, 1.80f, 2.00f, 1.90f, 1.80f, 999f, 999f
     };
 
     [Header("Zorunlu Test Süresi")]
-    [Tooltip("Ajanın seviye atlayabilmesi için en az bu kadar pencere (örn 5 x 50k = 250k adım) o derste kalması ve istikrarını koruması şarttır.")]
     public int minWindowsToLevelUp = 5;
 
     [Header("Düşüş Eşiği")]
-    [Tooltip("Ajanın alt sınıfa düşmesi için gereken ciddi başarısızlık sınırı.")]
     public float levelDownThreshold = -1.5f;
 
     [Header("Durum (Read Only)")]
@@ -47,17 +44,37 @@ public class CurriculumManager : MonoBehaviour
 
     private void Awake()
     {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+
+    private void Start()
+    {
+        // TURNUVA MODUNDA: Curriculum sistemini tamamen devre dışı bırak
+        if (!isTrainingMode)
+        {
+            currentLesson = 6; // En zor ders (sadece bilgi amaçlı)
+            Debug.Log("<color=magenta>[Curriculum] TURNUVA MODU: Curriculum sistemi devre dışı. Agentlar resetlenmeyecek.</color>");
+            return; // ❗ Burada durur, agent'lara müdahale etmez
+        }
+
+        // Eğitim modundaysa normal çalış
         LoadLesson();
+        ApplyLessonToAgent();
     }
 
     private void SaveLesson()
     {
+        if (!isTrainingMode) return; // Turnuvada kayıt yapma
+
         File.WriteAllText(SavePath, currentLesson.ToString());
         Debug.Log($"[Curriculum] Ders kaydedildi: {currentLesson} → {SavePath}");
     }
 
     private void LoadLesson()
     {
+        if (!isTrainingMode) return;
+
         if (File.Exists(SavePath))
         {
             string txt = File.ReadAllText(SavePath).Trim();
@@ -79,6 +96,8 @@ public class CurriculumManager : MonoBehaviour
 
     public void ReportStepWindow(float avg, int reportedLesson)
     {
+        if (!isTrainingMode) return; // ❗ Turnuvada rapor alma
+
         if (reportedLesson != currentLesson)
         {
             Debug.Log($"[Curriculum] Gecikmeli rapor yoksayıldı (Rapor L{reportedLesson} → Mevcut L{currentLesson})");
@@ -87,7 +106,6 @@ public class CurriculumManager : MonoBehaviour
 
         lessonWindowAverages.Add(avg);
 
-        // Kayan pencere limitini 20'ye sabitledik (Son 1 milyon adımın ortalaması)
         if (lessonWindowAverages.Count > 20)
             lessonWindowAverages.RemoveAt(0);
 
@@ -108,9 +126,11 @@ public class CurriculumManager : MonoBehaviour
 
     private void EvaluateAndDecide(float lessonAvg)
     {
+        if (!isTrainingMode) return; // ❗ Turnuvada karar verme
+
         float upThreshold = LevelUpThresholds[Mathf.Clamp(currentLesson - 1, 0, 6)];
 
-        // --- SEVİYE ATLATMA (Minimum pencere şartı eklendi!) ---
+        // Seviye atlama
         if (windowCountInLesson >= minWindowsToLevelUp && lessonAvg >= upThreshold && currentLesson < 7)
         {
             int old = currentLesson;
@@ -120,13 +140,12 @@ public class CurriculumManager : MonoBehaviour
             SaveLesson();
             Debug.Log($"<color=yellow>🏆 DERS ATLADI! {old} → {currentLesson}</color>");
         }
-        // --- SEVİYE DÜŞÜRME ---
+        // Seviye düşürme
         else if (windowCountInLesson >= minWindowsToLevelUp && lessonAvg <= levelDownThreshold && currentLesson > 1)
         {
-            // YENİ: Sadece Ders 4'ten Ders 3'e düşüşü engelle!
             if (currentLesson == 4)
             {
-                Debug.Log($"[Curriculum] Ders 4 (Sis Perdesi) eğitimi olduğu için Ders 3'e otomatik düşüş engellendi.");
+                Debug.Log($"[Curriculum] Ders 4 düşüşü engellendi.");
             }
             else
             {
@@ -138,15 +157,12 @@ public class CurriculumManager : MonoBehaviour
                 Debug.LogWarning($"⚠️ DERS DÜŞTÜ! {old} → {currentLesson}");
             }
         }
-        else
-        {
-            string status = (windowCountInLesson < minWindowsToLevelUp) ? "(Test Süresi Bekleniyor)" : "(Puan Bekleniyor)";
-            Debug.Log($"[Curriculum] Ders {currentLesson} devam. Ort: {lessonAvg:F3} {status}");
-        }
     }
 
     private void ResetLessonTracking()
     {
+        if (!isTrainingMode) return;
+
         lessonWindowAverages.Clear();
         windowCountInLesson = 0;
         lastWindowAvg = 0f;
@@ -154,21 +170,30 @@ public class CurriculumManager : MonoBehaviour
 
     private void ApplyLessonToAgent()
     {
-        // Sahnedeki TÜM ajanları bul ve hepsine aynı dersi uygula
+        if (!isTrainingMode) return; // ❗ TURNUVADA AGENT'LARA DOKUNMA!
+
+        // Eğitim modunda agentlara ders ata
         MerchantAgent[] allAgentsInScene = FindObjectsOfType<MerchantAgent>();
 
         foreach (var agent in allAgentsInScene)
         {
             agent.currentLesson = currentLesson;
-            agent.EndEpisode(); // Yeni derse temiz bir başlangıç yapmaları için bölümü bitir
+            agent.EndEpisode(); // Sadece eğitimde reset
         }
 
-        Debug.Log($"[Curriculum] Sahnedeki toplam {allAgentsInScene.Length} ajana Ders {currentLesson} uygulandı.");
+        Debug.Log($"[Curriculum] {allAgentsInScene.Length} ajana Ders {currentLesson} uygulandı ve resetlendi.");
     }
 
+    // --- DEBUG KOMUTLARI (Sadece eğitimde çalışır) ---
     [ContextMenu("Manuel Ders Atla")]
     public void DebugLevelUp()
     {
+        if (!isTrainingMode)
+        {
+            Debug.LogWarning("[Curriculum] Turnuva modunda manuel ders değiştirme kapalı.");
+            return;
+        }
+
         if (currentLesson >= 7) return;
         currentLesson++;
         ResetLessonTracking();
@@ -180,6 +205,8 @@ public class CurriculumManager : MonoBehaviour
     [ContextMenu("Dersi Sıfırla (Ders 1)")]
     public void DebugReset()
     {
+        if (!isTrainingMode) return;
+
         currentLesson = 1;
         ResetLessonTracking();
         SaveLesson();
@@ -190,6 +217,8 @@ public class CurriculumManager : MonoBehaviour
     [ContextMenu("Manuel Ders Düşür")]
     public void DebugLevelDown()
     {
+        if (!isTrainingMode) return;
+
         if (currentLesson <= 1) return;
         currentLesson--;
         ResetLessonTracking();
