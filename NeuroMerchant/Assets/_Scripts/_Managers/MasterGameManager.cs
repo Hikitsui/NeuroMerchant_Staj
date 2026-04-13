@@ -77,6 +77,46 @@ public class MasterGameManager : MonoBehaviour
             timeManager = FindObjectOfType<TimeManager>();
 
         Debug.Log("[MasterGM] Tüm manager'lar tarandı.");
+        SetupSelectedGameMode();
+    }
+
+    // MasterGameManager.cs içine Awake() fonksiyonunun sonuna ekle:
+
+    private void SetupSelectedGameMode()
+    {
+        // Eğitimi kapat, turnuvayı aç
+        isTrainingMode = false;
+
+        // 1. OYUNCU VS AI DURUMU
+        if (SessionData.CurrentType == SessionData.GameType.PlayerVsAI)
+        {
+            Debug.Log("<color=green>PVE Modu Aktif! Oyuncu kontrolleri açılıyor...</color>");
+            // İleride oyuncu scriptini burada aktif edeceksin
+        }
+
+        // 2. MOD KURALLARINI UYGULA
+        if (competitionManager != null)
+        {
+            competitionManager.maxDays = SessionData.MaxDays;
+        }
+
+        switch (SessionData.CurrentMode)
+        {
+            case SessionData.GameMode.AltinYolu:
+                Debug.Log("Oyun Modu: Altın Yolu başlatıldı.");
+                break;
+
+            case SessionData.GameMode.AcimasizKis:
+                Debug.Log("Oyun Modu: Acımasız Kış başlatıldı.");
+                // EventManager'a Kriz modunu aç emri ver!
+                if (eventManager != null) eventManager.productionEventsCount = 20; // Kaos!
+                break;
+
+            case SessionData.GameMode.Loncalar:
+                Debug.Log("Oyun Modu: Loncalar Savaşı başlatıldı.");
+                // Ajan sayısını 20 yap (Gelecekte)
+                break;
+        }
     }
 
     /// <summary>

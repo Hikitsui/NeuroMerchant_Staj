@@ -1,17 +1,22 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine.SceneManagement;
 
 // ==============================================================
-// COMPETITION MANAGER - TURNUVA MOTORU (DÜZELTİLMİŞ)
+// COMPETITION MANAGER - MODÜLER TURNUVA MOTORU
 // ==============================================================
 public class CompetitionManager : MonoBehaviour
 {
     public static CompetitionManager Instance;
 
+    [Header("Oyun Sonu UI")]
+    public GameObject gameOverPanel;
+    public TMPro.TextMeshProUGUI winnerText;
+    public TMPro.TextMeshProUGUI statsText;
+
     [Header("Turnuva Ayarları")]
-    [Tooltip("5 Yıl = 1800 Gün")]
-    public int maxDays = 1800;
+    public int maxDays = 1800; // SessionData'dan üzerine yazılacak
     public int currentDay = 0;
     public bool isMatchActive = false;
 
@@ -31,14 +36,13 @@ public class CompetitionManager : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("[Competition] Duplicate instance bulundu, yok ediliyor.");
             Destroy(gameObject);
         }
     }
 
     private void Start()
     {
-        // Sahnedeki tüm agentları bul
+        // 1. Sahnedeki tüm agentları bul
         allAgents = FindObjectsOfType<MerchantAgent>().ToList();
 
         if (allAgents.Count == 0)
@@ -47,32 +51,37 @@ public class CompetitionManager : MonoBehaviour
             return;
         }
 
-        // Agentlara isim ver
+        // Agentlara standart isim ver
         for (int i = 0; i < allAgents.Count; i++)
         {
             allAgents[i].gameObject.name = $"Kervan_{i + 1}";
-            Debug.Log($"[Competition] Agent kaydedildi: {allAgents[i].gameObject.name}");
         }
 
-        // TimeManager kontrolü
-        if (TimeManager.Instance == null)
+        // 2. TimeManager kontrolü ve abonelik
+        if (TimeManager.Instance != null)
         {
-            Debug.LogError("<color=red>[Competition] FATAL: TimeManager bulunamadı! Zaman sistemi çalışmıyor.</color>");
+            TimeManager.Instance.OnNewDay += HandleNewDay;
+        }
+        else
+        {
+            Debug.LogError("<color=red>[Competition] FATAL: TimeManager bulunamadı!</color>");
             return;
         }
 
-        // Zaman eventlerine abone ol
-        TimeManager.Instance.OnNewDay += HandleNewDay;
-        Debug.Log($"<color=green>[Competition] TimeManager'a abone olundu.</color>");
+        // 3. Menüden gelen ayarları kontrol et (SessionData)
+        // (Eğer oyunu direkt bu sahneden başlatırsan null yememek için varsayılanlar)
+        if (SessionData.MaxDays > 0)
+        {
+            maxDays = SessionData.MaxDays;
+        }
 
-        // Turnuvayı başlat
+        // 4. Turnuvayı başlat
         isMatchActive = true;
         currentDay = 0;
 
         Debug.Log($"<color=cyan>╔══════════════════════════════════════════════════╗</color>");
-        Debug.Log($"<color=cyan>║   TURNUVA BAŞLADI - ALTIN YOLU                  ║</color>");
-        Debug.Log($"<color=cyan>║   Toplam Agent: {allAgents.Count,-30} ║</color>");
-        Debug.Log($"<color=cyan>║   Hedef Süre: {maxDays} gün (5 yıl)              ║</color>");
+        Debug.Log($"<color=cyan>║ MOD: {SessionData.CurrentMode} | TİP: {SessionData.CurrentType} </color>");
+        Debug.Log($"<color=cyan>║ Toplam Kervan: {allAgents.Count} | Hedef Süre: {maxDays} Gün </color>");
         Debug.Log($"<color=cyan>╚══════════════════════════════════════════════════╝</color>");
     }
 
@@ -84,171 +93,188 @@ public class CompetitionManager : MonoBehaviour
         }
     }
 
+    // =========================================================
+    // HER YENİ GÜN TETİKLENEN ANA DÖNGÜ
+    // =========================================================
     private void HandleNewDay()
     {
         if (!isMatchActive) return;
 
         currentDay++;
 
-        // Hayatta kalanları say
-        var aliveAgents = allAgents.Where(a =>
-            a != null &&
-            a.gameObject.activeSelf &&
-            a.currentMoney > 0
-        ).ToList();
-
-        aliveAgentsCount = aliveAgents.Count;
-
-        // En zengin agentı bul
-        if (aliveAgents.Count > 0)
+        // Canlı kervanları güncelle
+        aliveAgentsCount = allAgents.Count(a => a != null && a.gameObject.activeSelf && a.currentMoney > 0);
+        if (aliveAgentsCount > 0)
         {
-            topAgentMoney = aliveAgents.Max(a => a.currentMoney);
+            topAgentMoney = allAgents.Where(a => a.gameObject.activeSelf).Max(a => a.currentMoney);
         }
 
-        // Her 30 günde bir rapor
-        if (currentDay % 30 == 0)
-        {
-            Debug.Log($"<color=yellow>📊 [Gün {currentDay}] Hayatta: {aliveAgentsCount}/{allAgents.Count} | En Zengin: {topAgentMoney:F0} Altın</color>");
-        }
+        // Modlara Göre Kazanma/Bitme Kontrolü
+        CheckWinConditions();
+    }
 
-        // TEK HAYATTA KALMA KONTROLÜ
-        if (aliveAgents.Count <= 1 && currentDay > 30) // İlk ayı geç
-        {
-            if (aliveAgents.Count == 1)
-            {
-                Debug.Log($"<color=green>[Competition] 🏆 TEK KALAN ŞAMPIYON: {aliveAgents[0].gameObject.name}!</color>");
-            }
-            else
-            {
-                Debug.Log($"<color=red>[Competition] Tüm agentlar elendi!</color>");
-            }
-            EndMatch();
-            return;
-        }
+    // =========================================================
+    // MODLARA GÖRE KAZANMA KONTROLÜ
+    // =========================================================
+    public void CheckWinConditions()
+    {
+        if (!isMatchActive) return;
 
-        // SÜRE KONTROLÜ
-        if (currentDay >= maxDays)
+        switch (SessionData.CurrentMode)
         {
-            Debug.Log($"<color=yellow>[Competition] Süre doldu! ({maxDays} gün tamamlandı)</color>");
-            EndMatch();
+            case SessionData.GameMode.AltinYolu:
+            case SessionData.GameMode.SarayinElcisi:
+            case SessionData.GameMode.Tekel:
+            case SessionData.GameMode.Loncalar:
+                // Süreli Modlar
+                if (currentDay >= maxDays)
+                {
+                    Debug.Log($"<color=yellow>[Competition] Süre doldu! ({maxDays} gün)</color>");
+                    EndTournament();
+                }
+                break;
+
+            case SessionData.GameMode.AcimasizKis:
+                // Süresiz Mod: Hayatta kalan son kişiyi bul
+                if (aliveAgentsCount <= 1 && currentDay > 30) // İlk 1 ayı bekle
+                {
+                    MerchantAgent lastAlive = allAgents.FirstOrDefault(a => a.gameObject.activeSelf && a.currentMoney > 0);
+                    EndTournament(lastAlive);
+                }
+                break;
         }
     }
 
-    private void EndMatch()
+    // =========================================================
+    // OYUNU BİTİR VE KAZANANI EKRANA YANSIT
+    // =========================================================
+    public void EndTournament(MerchantAgent forcedWinner = null)
     {
         isMatchActive = false;
-        Time.timeScale = 0f; // Oyunu durdur
+        Time.timeScale = 0f; // Zamanı durdur
 
-        Debug.Log($"<color=yellow>═══════════════════════════════════════════════════</color>");
-        Debug.Log($"<color=yellow>          TURNUVA SONA ERDİ!</color>");
-        Debug.Log($"<color=yellow>          Toplam Süre: {currentDay} Gün</color>");
-        Debug.Log($"<color=yellow>═══════════════════════════════════════════════════</color>");
+        string kazananIsmi = "KİMSE KAZANAMADI";
+        string kazananDetayi = "Herkes iflas etti...";
 
-        CalculateAltinYoluLeaderboard();
+        // A. ZATEN BELLİ BİR KAZANAN VARSA (Örn: Acımasız Kış)
+        if (forcedWinner != null)
+        {
+            kazananIsmi = forcedWinner.gameObject.name;
+            kazananDetayi = $"Hayatta Kalan Son Lord!\nKasa: {forcedWinner.currentMoney:F0} G";
+        }
+        // B. SÜRE BİTTİYSE MODA GÖRE KAZANAN HESAPLA
+        else
+        {
+            switch (SessionData.CurrentMode)
+            {
+                case SessionData.GameMode.AltinYolu:
+                    CalculateAltinYoluWinner(out kazananIsmi, out kazananDetayi);
+                    break;
+
+                case SessionData.GameMode.Loncalar:
+                    CalculateGuildWinner(out kazananIsmi, out kazananDetayi);
+                    break;
+
+                case SessionData.GameMode.SarayinElcisi:
+                    kazananIsmi = "SARAYIN ELÇİSİ (WIP)";
+                    kazananDetayi = "Krallık Puanı Sistemi bekleniyor...";
+                    // İleride: CalculateDiplomatWinner(out kazananIsmi, out kazananDetayi);
+                    break;
+
+                case SessionData.GameMode.Tekel:
+                    kazananIsmi = "TEKEL MODU (WIP)";
+                    kazananDetayi = "Pazar Payı Sistemi bekleniyor...";
+                    // İleride: CalculateMonopolyWinner(out kazananIsmi, out kazananDetayi);
+                    break;
+            }
+        }
+
+        // C. UI GÜNCELLEMESİ
+        if (winnerText != null) winnerText.text = $"KAZANAN:\n{kazananIsmi}";
+        if (statsText != null) statsText.text = kazananDetayi;
+
+        if (gameOverPanel != null)
+        {
+            gameOverPanel.SetActive(true);
+        }
+
+        Debug.Log($"<color=yellow>═════════ TURNUVA SONA ERDİ ═════════</color>\nKazanan: {kazananIsmi}\nDurum: {kazananDetayi}");
     }
 
-    private void CalculateAltinYoluLeaderboard()
+    // =========================================================
+    // ÖZEL HESAPLAMA FONKSİYONLARI (MOD ALTYAPILARI)
+    // =========================================================
+    private void CalculateAltinYoluWinner(out string winnerName, out string winnerStats)
     {
-        // Tüm agentları para durumlarına göre sırala
-        var sortedAgents = allAgents
-            .OrderByDescending(a =>
-            {
-                if (a == null) return -999f;
-                if (!a.gameObject.activeSelf) return -999f;
-                return a.currentMoney;
-            })
-            .ToList();
+        var zenginAjan = allAgents
+            .Where(a => a.gameObject.activeSelf && a.currentMoney > 0)
+            .OrderByDescending(a => a.currentMoney)
+            .FirstOrDefault();
 
-        Debug.Log("╔═══════════════════════════════════════════════════╗");
-        Debug.Log("║          🏆 NİHAİ SKOR TABLOSU 🏆                ║");
-        Debug.Log("╠═══════════════════════════════════════════════════╣");
-
-        for (int i = 0; i < sortedAgents.Count; i++)
+        if (zenginAjan != null)
         {
-            var agent = sortedAgents[i];
-
-            if (agent == null)
-            {
-                Debug.Log($"║ #{i + 1,-2} │ NULL AGENT                              ║");
-                continue;
-            }
-
-            bool isAlive = agent.gameObject.activeSelf && agent.currentMoney > 0;
-            string rank;
-            string status;
-
-            if (i == 0 && isAlive)
-            {
-                rank = "🥇";
-                status = $"<color=yellow><b>{agent.currentMoney:F0} ALTIN</b></color>";
-            }
-            else if (i == 1 && isAlive)
-            {
-                rank = "🥈";
-                status = $"<color=white>{agent.currentMoney:F0} Altın</color>";
-            }
-            else if (i == 2 && isAlive)
-            {
-                rank = "🥉";
-                status = $"<color=orange>{agent.currentMoney:F0} Altın</color>";
-            }
-            else if (isAlive)
-            {
-                rank = $"#{i + 1}";
-                status = $"{agent.currentMoney:F0} Altın";
-            }
-            else
-            {
-                rank = $"#{i + 1}";
-                status = "<color=red>İFLAS ETTİ</color>";
-            }
-
-            string agentName = agent.gameObject.name.PadRight(15);
-            Debug.Log($"║ {rank,-3} │ {agentName} │ {status,-20} ║");
+            winnerName = zenginAjan.gameObject.name;
+            winnerStats = $"Nakit Kralı\nToplam Para: {zenginAjan.currentMoney:F0} G";
         }
-
-        Debug.Log("╚═══════════════════════════════════════════════════╝");
-
-        // Kazananı özel olarak vurgula
-        var winner = sortedAgents.FirstOrDefault(a => a != null && a.gameObject.activeSelf && a.currentMoney > 0);
-        if (winner != null)
+        else
         {
-            Debug.Log($"<color=cyan>🎊 KAZANAN: {winner.gameObject.name} - {winner.currentMoney:F0} ALTIN 🎊</color>");
+            winnerName = "KİMSE KAZANAMADI";
+            winnerStats = "Tüm Kervanlar Battı...";
         }
     }
 
-    // Manuel turnuva bitirme (test için)
-    [ContextMenu("Turnuvayı Bitir")]
+    private void CalculateGuildWinner(out string guildName, out string guildStats)
+    {
+        guildName = "LONCA BULUNAMADI";
+        guildStats = "Herkes battı...";
+
+        if (allAgents.Count == 0) return;
+
+        // 5 Loncaya bölme (Index / (toplam/5))
+        float[] loncaKasalari = new float[5];
+        int agentsPerGuild = Mathf.Max(1, Mathf.CeilToInt((float)allAgents.Count / 5f));
+
+        for (int i = 0; i < allAgents.Count; i++)
+        {
+            if (allAgents[i].gameObject.activeSelf && allAgents[i].currentMoney > 0)
+            {
+                int guildIndex = i / agentsPerGuild;
+                if (guildIndex < 5) loncaKasalari[guildIndex] += allAgents[i].currentMoney;
+            }
+        }
+
+        float maxLoncaKasa = 0f;
+        int bestGuildIndex = -1;
+
+        for (int i = 0; i < 5; i++)
+        {
+            if (loncaKasalari[i] > maxLoncaKasa)
+            {
+                maxLoncaKasa = loncaKasalari[i];
+                bestGuildIndex = i;
+            }
+        }
+
+        if (bestGuildIndex != -1)
+        {
+            guildName = $"LONCA {bestGuildIndex + 1}";
+            guildStats = $"Lonca Toplam Kasası:\n{maxLoncaKasa:F0} G";
+        }
+    }
+
+    // =========================================================
+    // UI BUTON TETİKLEYİCİLERİ
+    // =========================================================
+    public void Btn_ReturnToMainMenu()
+    {
+        // Zamanı akıtmaya devam et ki menüdeki animasyonlar donmasın
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(0); // Menü sahnesine dön
+    }
+
+    [ContextMenu("Test: Hemen Bitir")]
     public void ForceEndMatch()
     {
-        if (!isMatchActive)
-        {
-            Debug.LogWarning("[Competition] Turnuva zaten sona erdi.");
-            return;
-        }
-
-        Debug.Log("[Competition] Manuel olarak turnuva sonlandırıldı.");
-        EndMatch();
-    }
-
-    // Turnuvayı yeniden başlat
-    [ContextMenu("Turnuvayı Yeniden Başlat")]
-    public void RestartMatch()
-    {
-        Time.timeScale = 1f;
-        currentDay = 0;
-        isMatchActive = true;
-
-        foreach (var agent in allAgents)
-        {
-            if (agent != null)
-            {
-                agent.gameObject.SetActive(true);
-                // Agent'ın kendi resetini yapması için EndEpisode yerine 
-                // manuel reset fonksiyonu çağırılmalı (MerchantAgent'da olmalı)
-            }
-        }
-
-        Debug.Log("<color=green>[Competition] Turnuva yeniden başlatıldı!</color>");
+        EndTournament();
     }
 }
