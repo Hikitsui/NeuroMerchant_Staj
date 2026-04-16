@@ -46,11 +46,12 @@ public class WorldGenerator : MonoBehaviour
 
     void Awake()
     {
-        GenerateWorld();
     }
 
-    void GenerateWorld()
+    public void GenerateWorld(bool isTraining)
     {
+        this.trainingMode = isTraining; // Şefin söylediği modu uygula
+
         string modeLog = trainingMode ? "TRAINING (Tiny World)" : "FULL PRODUCTION (Massive World)";
         string popLog = enablePopulationDynamics ? "DYNAMIC POPULATION (Growth ON)" : "STATIC POPULATION (Growth OFF)";
 

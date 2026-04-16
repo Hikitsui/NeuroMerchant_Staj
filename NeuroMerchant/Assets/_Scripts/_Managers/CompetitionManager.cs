@@ -40,7 +40,7 @@ public class CompetitionManager : MonoBehaviour
         }
     }
 
-    private void Start()
+    public void InitTournament()
     {
         // 1. Sahnedeki tüm agentları bul
         allAgents = FindObjectsOfType<MerchantAgent>().ToList();

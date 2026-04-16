@@ -12,6 +12,10 @@ public class MasterGameManager : MonoBehaviour
     [Tooltip("TRUE = Eğitim Modu (AI öğreniyor) | FALSE = Turnuva Modu (AI yarışıyor)")]
     public bool isTrainingMode = false; // ❗ Inspector'dan değiştir
 
+    [Header("Ajan (Kervan) Üretimi")]
+    public GameObject merchantAgentPrefab; // Kervanının Prefab'ını buraya sürükleyeceksin
+    public Transform agentsContainer;      // Sahnede ajanların duracağı boş obje (Düzen için)
+
     [Header("📊 Referanslar")]
     public WorldGenerator worldGenerator;
     public ContractManager contractManager;
@@ -53,6 +57,82 @@ public class MasterGameManager : MonoBehaviour
         Debug.Log($"<color=cyan>╚════════════════════════════════════════╝</color>");
     }
 
+    // MasterGameManager.cs içinde
+    // MasterGameManager.cs içindeki ilgili kısımlar:
+
+    void Start()
+    {
+        // Yüklenmeler için ufak bir bekleme ve ZİNCİRİ BAŞLAT
+        Invoke("StartGameSequence", 0.5f);
+    }
+
+    private void StartGameSequence()
+    {
+        // ==========================================
+        // 1. ZİNCİR: DÜNYAYI YARAT
+        // ==========================================
+        if (worldGenerator != null)
+        {
+            // Şef kendi güncel modunu (isTrainingMode) WorldGenerator'a yolluyor!
+            worldGenerator.GenerateWorld(this.isTrainingMode);
+        }
+        else
+        {
+            Debug.LogError("<color=red>[MasterGM] HATA: WorldGenerator bulunamadı! Harita üretilemiyor.</color>");
+            return;
+        }
+
+        // Şehirlerin Unity'de yerleşmesi için 1 kare bekle ve kalanını çalıştır
+        StartCoroutine(SpawnAndStartRoutine());
+    }
+
+    private System.Collections.IEnumerator SpawnAndStartRoutine()
+    {
+        yield return null; // 1 Kare (Frame) bekle ki şehir objeleri tam var olsun
+
+        // ==========================================
+        // 2. ZİNCİR: AJANLARI (KERVANLARI) DOĞUR
+        // ==========================================
+        SpawnAgents(SessionData.AgentCount);
+
+        // ==========================================
+        // 3. ZİNCİR: TURNUVAYI BAŞLAT
+        // ==========================================
+        if (competitionManager != null)
+        {
+            competitionManager.InitTournament();
+
+            // Eğer varsa Mod Ayarlarını da yükle (Süre sınırı vs)
+            competitionManager.maxDays = SessionData.MaxDays;
+        }
+    }
+
+    private void SpawnAgents(int count)
+    {
+        CityController[] allCities = FindObjectsOfType<CityController>();
+        if (allCities.Length == 0)
+        {
+            Debug.LogError("<color=red>[MasterGM] Şehirler bulunamadı! Ajanlar doğamıyor.</color>");
+            return;
+        }
+
+        // Şehirlerin bağlı olduğu "Ana Odayı" (Root) bul (WorldGenerator objesinin ta kendisi)
+        Transform mapRoot = worldGenerator.transform;
+
+        for (int i = 0; i < count; i++)
+        {
+            CityController randomCity = allCities[Random.Range(0, allCities.Length)];
+            Vector3 spawnPos = randomCity.transform.position + new Vector3(Random.Range(-3f, 3f), 0, Random.Range(-3f, 3f));
+
+            // SİHİR BURADA: Ajanı WorldGenerator objesinin içine (mapRoot) doğuruyoruz!
+            GameObject newAgent = Instantiate(merchantAgentPrefab, spawnPos, Quaternion.identity, mapRoot);
+
+            newAgent.name = $"Kervan_{i + 1}";
+        }
+
+        Debug.Log($"<color=cyan>[MasterGM] {count} kervan haritaya yerleştirildi.</color>");
+    }
+
     private void FindAllManagers()
     {
         if (worldGenerator == null) 
@@ -87,17 +167,20 @@ public class MasterGameManager : MonoBehaviour
         // Eğitimi kapat, turnuvayı aç
         isTrainingMode = false;
 
-        // 1. OYUNCU VS AI DURUMU
+        // 1. ÖNCE AJANLARI ÜRET (SPAWN)
+        SpawnAgents(SessionData.AgentCount);
+
+        // 2. SONRA TURNUVA KURALLARINI UYGULA
+        if (competitionManager != null)
+        {
+            competitionManager.maxDays = SessionData.MaxDays;
+        }
+
+        // 3. OYUNCU VS AI DURUMU
         if (SessionData.CurrentType == SessionData.GameType.PlayerVsAI)
         {
             Debug.Log("<color=green>PVE Modu Aktif! Oyuncu kontrolleri açılıyor...</color>");
             // İleride oyuncu scriptini burada aktif edeceksin
-        }
-
-        // 2. MOD KURALLARINI UYGULA
-        if (competitionManager != null)
-        {
-            competitionManager.maxDays = SessionData.MaxDays;
         }
 
         switch (SessionData.CurrentMode)

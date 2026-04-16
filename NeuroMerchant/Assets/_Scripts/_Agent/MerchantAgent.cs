@@ -212,6 +212,17 @@ public class MerchantAgent : Agent
     // ==========================================================
     public override void OnEpisodeBegin()
     {
+        // ==========================================
+        // 1. GÜVENLİK ZIRHI (NULL CHECK)
+        // ==========================================
+        // Eğer WorldManager (veya şehirleri tutan ana script) henüz yüklenmediyse işlemi iptal et.
+        // Senin projende şehirleri ne tutuyorsa (Örn: WorldGenerator, CityManager) onu kontrol et:
+        if (FindObjectOfType<CityController>() == null)
+        {
+            Debug.LogWarning($"<color=yellow>[{gameObject.name}] OnEpisodeBegin iptal edildi: Şehirler henüz yüklenmedi!</color>");
+            return;
+        }
+
         if (allSettlements == null || allSettlements.Count == 0) Initialize();
         LoadSettlements();
 
@@ -562,7 +573,15 @@ public class MerchantAgent : Agent
 
         int idx = allSettlements.IndexOf(currentDestination);
         UpdateMemory(idx, currentDestination);
-        HandleBrokerAction();
+
+        if (currentMoney > 300)
+        {
+            HandleBrokerAction();
+        }
+        else if (enableDebugLogs)
+        {
+            Debug.Log($"<color=grey>[{gameObject.name}] Para az ({currentMoney}G), Broker pas geçildi.</color>");
+        }
 
         if (currentLesson >= LESSON_EXT_SIGNALS)
             CheckContractCompletion();
@@ -704,14 +723,28 @@ public class MerchantAgent : Agent
             else AddReward(-0.001f);
         }
 
-        // İflas kontrolü
-        if (currentMoney <= 0)
+        // ===============================================
+        // İFLAS KONTROLÜ
+        // ===============================================
+        if (currentMoney <= 0 && carriedAmount == 0)
         {
-            if (enableDebugLogs) Debug.LogWarning($"<color=red>[IFLAS]</color> Para bitti! Son alim: {lastBuyCity?.cityName} | Mal: {carriedAmount}x {carriedItemData?.itemName}");
-            AddReward(-2f);
-            // Eski hali: EndEpisode();
-            SafeEndEpisode("İflas - Para Sıfırlandı");
-            return;
+            // Turnuvada mıyız kontrol et
+            bool inTournament = CompetitionManager.Instance != null && CompetitionManager.Instance.isMatchActive;
+
+            if (inTournament)
+            {
+                // TURNUVADAYSAK SADECE OYUNDAN AT (RESETLEME)
+                Debug.Log($"<color=red>💀 [{gameObject.name}] İFLAS ETTİ! Tüm parasını harcadı ve malı yok. Elendi.</color>");
+                gameObject.SetActive(false);
+            }
+            else
+            {
+                // EĞİTİMDEYSEK RESETLE
+                if (enableDebugLogs) Debug.LogWarning($"<color=red>[IFLAS]</color> Para bitti ve kargo boş!");
+                AddReward(-2f);
+                SafeEndEpisode("İflas - Para Sıfırlandı");
+            }
+            return; // İşlemi anında kes
         }
 
         bool isTurnuva = CompetitionManager.Instance != null && CompetitionManager.Instance.isMatchActive;
