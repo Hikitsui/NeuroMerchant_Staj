@@ -88,7 +88,16 @@ public class MasterGameManager : MonoBehaviour
 
     private System.Collections.IEnumerator SpawnAndStartRoutine()
     {
-        yield return null; // 1 Kare (Frame) bekle ki şehir objeleri tam var olsun
+        // ESKİ KOD: yield return null; // Sadece 1 kare bekliyordu, yetmedi!
+        // YENİ KOD: Şehirlerin "InitializeCity" işlemlerini bitirmesi, 
+        // pazar tezgahlarını kurması ve ürünlerini kaydetmesi için yarım saniye bekle.
+        yield return new WaitForSeconds(0.5f);
+
+        // ==========================================
+        // 1.5 ZİNCİR: YARDIMCI SİSTEMLERİ UYANDIR
+        // ==========================================
+        if (eventManager != null) eventManager.InitManager(this.isTrainingMode);
+        if (contractManager != null) contractManager.InitManager(this.isTrainingMode);
 
         // ==========================================
         // 2. ZİNCİR: AJANLARI (KERVANLARI) DOĞUR
@@ -101,8 +110,6 @@ public class MasterGameManager : MonoBehaviour
         if (competitionManager != null)
         {
             competitionManager.InitTournament();
-
-            // Eğer varsa Mod Ayarlarını da yükle (Süre sınırı vs)
             competitionManager.maxDays = SessionData.MaxDays;
         }
     }

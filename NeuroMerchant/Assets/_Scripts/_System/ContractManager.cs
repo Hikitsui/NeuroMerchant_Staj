@@ -45,19 +45,44 @@ public class ContractManager : MonoBehaviour
 
     void Awake() { Instance = this; }
 
-    void Start()
+    // Eski void Start() yerine bu gelecek:
+    public void InitManager(bool isTraining)
     {
-        allCities = FindObjectsOfType<CityController>();
-        var marketItems = FindObjectsOfType<CityController>().SelectMany(c => c.marketItems).Select(m => m.itemData).Distinct().ToArray();
+        this.trainingMode = isTraining;
+
+        // 1. ZIRH: Sadece marketi olan (içi dolu) GERÇEK şehirleri listeye al!
+        allCities = FindObjectsOfType<CityController>()
+            .Where(c => c != null && c.marketItems != null && c.marketItems.Count > 0)
+            .ToArray();
+
+        if (allCities.Length == 0)
+        {
+            Debug.LogError("<color=red>[ContractManager] Marketi olan gerçek şehir bulunamadı!</color>");
+            return;
+        }
+
+        // 2. ZIRH: Eğer marketItems içinde boş (null) bir şey varsa onu da atla.
+        var marketItems = allCities
+            .SelectMany(c => c.marketItems)
+            .Where(m => m != null && m.itemData != null)
+            .Select(m => m.itemData)
+            .Distinct()
+            .ToArray();
+
         allItems = marketItems;
 
+        // ... Altındaki TimeManager abonelikleri ve Schedule kısmı aynen kalacak ...
         if (TimeManager.Instance != null)
         {
+            TimeManager.Instance.OnNewDay -= HandleDailyRoutine;
+            TimeManager.Instance.OnNewMonth -= ScheduleNextMonthContracts;
+
             TimeManager.Instance.OnNewDay += HandleDailyRoutine;
             TimeManager.Instance.OnNewMonth += ScheduleNextMonthContracts;
         }
 
         ScheduleNextMonthContracts();
+        Debug.Log($"<color=yellow>[ContractManager] Başlatıldı. Mod: {(trainingMode ? "Eğitim" : "Turnuva")}</color>");
     }
 
     void OnDestroy()

@@ -165,21 +165,27 @@ public class CityController : MonoBehaviour
         }
     }
 
-    // --- FIYAT HESAPLAMA MANTIGI ---
     // Denge noktası: maxStock/2 stokta = basePrice
     // Stok 0'a yakın  → 2x basePrice (kıtlık)
     // Stok maxStock/2 → 1x basePrice (denge)
     // Stok maxStock'a → 0.5x basePrice (bolluk)
     int CalculatePriceLogic(MarketItem marketItem)
     {
-        // KÖY (isProducer): Fiyat her zaman sabit = basePrice
+        // KÖY (isProducer): Fiyat her zaman sabit = basePrice (Normal şartlarda)
         if (isProducer)
-            return marketItem.itemData.basePrice;
+        {
+            int baseP = marketItem.itemData.basePrice;
+
+            // --- DÜZELTME: productionMultiplier kullanıldı ---
+            // Kıtlık (Famine) varsa fiyat 3 katına çıkar! (0.5f'den küçükse tetiklenir)
+            if (SessionData.CurrentMode == SessionData.GameMode.AcimasizKis && productionMultiplier < 0.5f)
+            {
+                return baseP * 3;
+            }
+            return baseP;
+        }
 
         // ŞEHİR (tüketici): Stok bazlı dinamik fiyat
-        // Stok 0          → 2x basePrice (kıtlık)
-        // Stok maxStock/2 → 1x basePrice (denge)
-        // Stok maxStock   → 0.5x basePrice (bolluk)
         float currentAmount = Mathf.Max(marketItem.currentStock, 1);
         float halfStock = marketItem.maxStock * 0.5f;
         float fillRatio = currentAmount / halfStock;
@@ -190,20 +196,40 @@ public class CityController : MonoBehaviour
         else
             priceMultiplier = Mathf.Lerp(1.0f, 0.5f, Mathf.Min(fillRatio - 1.0f, 1.0f));
 
+        // --- DÜZELTME: consumptionMultiplier kullanıldı ---
+        // Savaş (War) varsa PANİK ÇARPANINI EKLE! (2.5f'den büyükse tetiklenir)
+        if (SessionData.CurrentMode == SessionData.GameMode.AcimasizKis && consumptionMultiplier >= 2.5f)
+        {
+            priceMultiplier *= 3.0f;
+        }
+
         return Mathf.Clamp(Mathf.RoundToInt(marketItem.itemData.basePrice * priceMultiplier), 1, 9999);
     }
 
-    // Ajanlar tekil fiyat sormak için bunu kullanır
+    // Ajanlar tekil fiyat sormak için bunu kullanır (ALIŞ FİYATI)
     public int GetPrice(ItemData item)
     {
         foreach (var marketItem in marketItems)
         {
-            if (marketItem.itemData == item) return CalculatePriceLogic(marketItem);
+            if (marketItem.itemData == item)
+            {
+                int basePrice = CalculatePriceLogic(marketItem);
+
+                // --- ACIMASIZ KIŞ ZAMMI (Ajan Alırken Fiyat Şişer) ---
+                if (SessionData.CurrentMode == SessionData.GameMode.AcimasizKis)
+                {
+                    // Zorluğa göre makas: Kolay %10 (0.1f), Orta %20 (0.2f), Zor %30 (0.3f)
+                    float makasOrani = 0.1f + (SessionData.DifficultyLevel * 0.1f);
+                    return Mathf.RoundToInt(basePrice * (1.0f + makasOrani));
+                }
+
+                return basePrice; // Altın Yolu modunda normal fiyattan alır
+            }
         }
         return 0;
     }
 
-    // --- TOPLU SATIŞ SİMÜLASYONU (Marjinal Fayda) ---
+    // --- TOPLU SATIŞ SİMÜLASYONU (SATIŞ FİYATI) ---
     // Ajan: "Sana 20 tane satarsam elime toplam kaç geçer?"
     public int GetBulkSellValue(ItemData item, int amountToSell)
     {
@@ -230,6 +256,14 @@ public class CityController : MonoBehaviour
                     ? Mathf.Lerp(2.0f, 1.0f, fillR)
                     : Mathf.Lerp(1.0f, 0.5f, Mathf.Min(fillR - 1.0f, 1.0f));
                 price = marketItem.itemData.basePrice * mult;
+            }
+
+            // --- ACIMASIZ KIŞ KESİNTİSİ (Ajan Satarken Fiyat Düşer) ---
+            if (SessionData.CurrentMode == SessionData.GameMode.AcimasizKis)
+            {
+                // Zorluğa göre makas (Örn zor modda fiyat %30 kırpılır)
+                float makasOrani = 0.1f + (SessionData.DifficultyLevel * 0.1f);
+                price = price * (1.0f - makasOrani);
             }
 
             expectedTotalIncome += Mathf.Clamp(Mathf.RoundToInt(price), 1, 1000);

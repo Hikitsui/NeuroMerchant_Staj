@@ -102,8 +102,26 @@ public class CompetitionManager : MonoBehaviour
 
         currentDay++;
 
-        // Canlı kervanları güncelle
-        aliveAgentsCount = allAgents.Count(a => a != null && a.gameObject.activeSelf && a.currentMoney > 0);
+        // --- YENİ EKLENEN İFLAS SİSTEMİ (BATTLE ROYALE) ---
+        foreach (var agent in allAgents)
+        {
+            // Eğer ajan hala sahnede aktifse ve parası SIFIRA veya EKSİYE düştüyse
+
+            if (agent.gameObject.activeSelf && agent.currentMoney <= 0)
+            {
+                agent.gameObject.SetActive(false);
+
+                // Hangi modda olduğumuza göre ölüm sebebini belirle
+                string sebep = (SessionData.CurrentMode == SessionData.GameMode.AcimasizKis) ? "soğuktan dondu" : "iflas etti";
+
+                Debug.Log($"<color=red>💀 İFLAS: {agent.gameObject.name} {sebep} ve elendi! (Gün: {currentDay})</color>");
+            }
+        }
+        // ----------------------------------------------------
+
+        // Canlı kervanları güncelle (Artık sadece activeSelf bakmamız yeterli çünkü ölenleri kapattık)
+        aliveAgentsCount = allAgents.Count(a => a != null && a.gameObject.activeSelf);
+
         if (aliveAgentsCount > 0)
         {
             topAgentMoney = allAgents.Where(a => a.gameObject.activeSelf).Max(a => a.currentMoney);
@@ -136,9 +154,10 @@ public class CompetitionManager : MonoBehaviour
 
             case SessionData.GameMode.AcimasizKis:
                 // Süresiz Mod: Hayatta kalan son kişiyi bul
-                if (aliveAgentsCount <= 1 && currentDay > 30) // İlk 1 ayı bekle
+                if (aliveAgentsCount <= 1 && currentDay > 5) // 30 yerine 5 yaptık
                 {
-                    MerchantAgent lastAlive = allAgents.FirstOrDefault(a => a.gameObject.activeSelf && a.currentMoney > 0);
+                    // Artık currentMoney sormamıza gerek yok, sahnede açıksa yaşıyordur
+                    MerchantAgent lastAlive = allAgents.FirstOrDefault(a => a.gameObject.activeSelf);
                     EndTournament(lastAlive);
                 }
                 break;

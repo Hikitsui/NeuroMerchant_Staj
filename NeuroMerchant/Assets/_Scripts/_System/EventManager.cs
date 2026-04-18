@@ -43,17 +43,34 @@ public class EventManager : MonoBehaviour
 
     void Awake() { Instance = this; }
 
-    void Start()
+    // Eski void Start() yerine bu gelecek:
+    public void InitManager(bool isTraining)
     {
-        allCities = FindObjectsOfType<CityController>();
+        this.trainingMode = isTraining;
 
+        // ZIRH: Sahte şehirleri (Lonca vs.) etkinliklerden uzak tut!
+        allCities = FindObjectsOfType<CityController>()
+            .Where(c => c != null && c.marketItems != null && c.marketItems.Count > 0)
+            .ToArray();
+
+        if (allCities.Length == 0)
+        {
+            Debug.LogError("<color=red>[EventManager] Marketi olan gerçek şehir bulunamadı!</color>");
+            return;
+        }
+
+        // ... Altındaki kodlar (TimeManager ve Event üretme) aynen kalıyor ...
         if (TimeManager.Instance != null)
         {
+            TimeManager.Instance.OnNewDay -= HandleDailyRoutine;
+            TimeManager.Instance.OnNewMonth -= ScheduleNextMonthEvents;
+
             TimeManager.Instance.OnNewDay += HandleDailyRoutine;
             TimeManager.Instance.OnNewMonth += ScheduleNextMonthEvents;
         }
 
         ScheduleNextMonthEvents();
+        Debug.Log($"<color=orange>[EventManager] Başlatıldı. Mod: {(trainingMode ? "Eğitim" : "Turnuva")}</color>");
     }
 
     void OnDestroy()
@@ -69,15 +86,31 @@ public class EventManager : MonoBehaviour
     {
         scheduledEvents.Clear();
 
-        // MODA GORE SAYIYI BELIRLE
-        int eventCount = trainingMode ? trainingEventsCount : productionEventsCount;
-        string modeLog = trainingMode ? "TRAINING (Low Chaos)" : "FULL (High Chaos)";
+        // 1. MODA VE ZORLUĞA GÖRE EVENT SAYISINI BELİRLE
+        int eventCount = trainingEventsCount;
+        bool isWinterMode = (SessionData.CurrentMode == SessionData.GameMode.AcimasizKis);
 
+        if (!trainingMode)
+        {
+            if (isWinterMode)
+            {
+                // --- İŞTE BURASI: Zorluğa göre saf kaos miktarı! ---
+                // 0 = Kolay (5 Olay), 1 = Orta (8 Olay), 2 = Zor (12 Olay)
+                if (SessionData.DifficultyLevel == 0) eventCount = 5;
+                else if (SessionData.DifficultyLevel == 1) eventCount = 8;
+                else eventCount = 12;
+            }
+            else
+            {
+                eventCount = productionEventsCount;
+            }
+        }
+
+        // Konsola yazarken hangi zorlukta kaç kriz çıktığını da görelim
+        string modeLog = trainingMode ? "TRAINING" : (isWinterMode ? $"WINTER CHAOS (Zorluk: {SessionData.DifficultyLevel})" : "FULL PROD");
         Debug.Log($"<color=magenta>EVENT MANAGER:</color> Drafting schedule ({modeLog}). Target Events: {eventCount}");
 
-        // Sehir sayisi event sayisindan azsa hata vermesin diye kontrol
         int safeCount = Mathf.Min(eventCount, allCities.Length);
-
         List<CityController> potentialTargets = allCities.OrderBy(x => Random.value).Take(safeCount).ToList();
 
         foreach (var city in potentialTargets)
@@ -85,15 +118,24 @@ public class EventManager : MonoBehaviour
             PendingEvent newPlan = new PendingEvent();
             newPlan.targetCity = city;
             newPlan.startDayOfMonth = Random.Range(1, 29);
-            newPlan.duration = Random.Range(5, 15);
 
-            // SEHIR TIPINE GORE OLAY SEC
-            newPlan.type = GetValidEventForCity(city);
+            // Kış modunda krizler daha uzun sürer (10-20 gün), Normalde (5-15 gün)
+            newPlan.duration = isWinterMode ? Random.Range(10, 20) : Random.Range(5, 15);
+
+            // 2. MODA GÖRE OLAY SEÇ
+            if (isWinterMode)
+            {
+                // KIŞ MODU: Sadece kötü olaylar (Kıtlık ve Savaş)
+                newPlan.type = city.isProducer ? EventType.Famine : EventType.War;
+            }
+            else
+            {
+                // NORMAL MOD: İyi ve Kötü karışık
+                newPlan.type = GetValidEventForCity(city);
+            }
 
             scheduledEvents.Add(newPlan);
-
-            string cityType = city.isProducer ? "Producer" : "Consumer";
-            Debug.Log($"<color=grey>SCHEDULED:</color> {newPlan.type} in {city.cityName} ({cityType}) on Day {newPlan.startDayOfMonth}.");
+            Debug.Log($"<color=grey>SCHEDULED:</color> {newPlan.type} in {city.cityName} on Day {newPlan.startDayOfMonth}.");
         }
     }
 
