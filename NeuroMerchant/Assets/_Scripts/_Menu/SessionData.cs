@@ -5,7 +5,7 @@ public static class SessionData
     public enum GameType { AIVsAI, PlayerVsAI }
 
     // 5 Efsanevi Modumuz
-    public enum GameMode { AltinYolu, AcimasizKis, SarayinElcisi, Tekel, Loncalar }
+    public enum GameMode { AltinYolu, AcimasizKis, SarayinElcisi, TekelSavaslari, LoncalarIttifaki }
 
     // Varsayılan seçimler (Menüde değişecek)
     public static GameType CurrentType = GameType.AIVsAI;
@@ -14,6 +14,7 @@ public static class SessionData
     // --- Dinamik Ayarlar ---
     public static int AgentCount = 5;
     public static int MaxDays = 1800; // 5 Yıl
+    public static int GuildCount = 4; // Gelecek mod için
 
     // YENİ EKLENEN: Modlara özel ek veriler
     public static int DifficultyLevel = 1; // 0: Kolay, 1: Orta, 2: Zor

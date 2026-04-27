@@ -206,7 +206,7 @@ public class CityController : MonoBehaviour
         return Mathf.Clamp(Mathf.RoundToInt(marketItem.itemData.basePrice * priceMultiplier), 1, 9999);
     }
 
-    // Ajanlar tekil fiyat sormak için bunu kullanır (ALIŞ FİYATI)
+    // Ajanlar tekil fiyat sormak için bunu kullanır
     public int GetPrice(ItemData item)
     {
         foreach (var marketItem in marketItems)
@@ -215,15 +215,25 @@ public class CityController : MonoBehaviour
             {
                 int basePrice = CalculatePriceLogic(marketItem);
 
+                // --- YENİ: ALTIN İLLÜZYONU (Sarayın Elçisi Modu) ---
+                if (SessionData.CurrentMode == SessionData.GameMode.SarayinElcisi && ContractManager.Instance != null && !isProducer)
+                {
+                    int ihaleOdulu = ContractManager.Instance.GetPotentialContractReward(this, item);
+                    if (ihaleOdulu > 0)
+                    {
+                        // Ajanın beynini hackliyoruz: Birim fiyatını devasa ihale ödülü olarak gösteriyoruz!
+                        return ihaleOdulu;
+                    }
+                }
+
                 // --- ACIMASIZ KIŞ ZAMMI (Ajan Alırken Fiyat Şişer) ---
                 if (SessionData.CurrentMode == SessionData.GameMode.AcimasizKis)
                 {
-                    // Zorluğa göre makas: Kolay %10 (0.1f), Orta %20 (0.2f), Zor %30 (0.3f)
                     float makasOrani = 0.1f + (SessionData.DifficultyLevel * 0.1f);
                     return Mathf.RoundToInt(basePrice * (1.0f + makasOrani));
                 }
 
-                return basePrice; // Altın Yolu modunda normal fiyattan alır
+                return basePrice;
             }
         }
         return 0;
@@ -235,6 +245,20 @@ public class CityController : MonoBehaviour
     {
         var marketItem = marketItems.Find(x => x.itemData == item);
         if (marketItem == null) return 0;
+
+        if (SessionData.CurrentMode == SessionData.GameMode.SarayinElcisi && ContractManager.Instance != null && !isProducer)
+        {
+            var ihale = ContractManager.Instance.activeContracts.Find(c => c.targetCity == this && c.requiredItem == item);
+            if (ihale != null)
+            {
+                // Ajanın elindeki mal (amountToSell) ihaleyi tekte kapatmaya yetiyorsa o devasa parayı ona göster!
+                if (amountToSell >= ihale.requiredAmount)
+                {
+                    return ihale.rewardGold;
+                }
+                // Yetmiyorsa illüzyon çalışmaz, aşağıdaki normal "ucuz" fiyat hesaplamasına düşer!
+            }
+        }
 
         int expectedTotalIncome = 0;
         int tempStock = marketItem.currentStock; // Sanal stok

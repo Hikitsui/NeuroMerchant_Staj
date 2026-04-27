@@ -1,6 +1,7 @@
-﻿using UnityEngine;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using System.Text;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 
 // ==============================================================
@@ -141,9 +142,8 @@ public class CompetitionManager : MonoBehaviour
         switch (SessionData.CurrentMode)
         {
             case SessionData.GameMode.AltinYolu:
-            case SessionData.GameMode.SarayinElcisi:
-            case SessionData.GameMode.Tekel:
-            case SessionData.GameMode.Loncalar:
+            case SessionData.GameMode.TekelSavaslari:
+            case SessionData.GameMode.LoncalarIttifaki:
                 // Süreli Modlar
                 if (currentDay >= maxDays)
                 {
@@ -159,6 +159,25 @@ public class CompetitionManager : MonoBehaviour
                     // Artık currentMoney sormamıza gerek yok, sahnede açıksa yaşıyordur
                     MerchantAgent lastAlive = allAgents.FirstOrDefault(a => a.gameObject.activeSelf);
                     EndTournament(lastAlive);
+                }
+                break;
+
+            case SessionData.GameMode.SarayinElcisi:
+                // Hem Süreli Hem Hedefli
+                if (currentDay >= maxDays)
+                {
+                    Debug.Log($"<color=yellow>[Competition] Süre doldu! ({maxDays} gün)</color>");
+                    EndTournament();
+                }
+                else
+                {
+                    // 25 Puana (veya belirlediğin hedefe) ilk ulaşan kazanır!
+                    MerchantAgent elci = allAgents.FirstOrDefault(a => a.gameObject.activeSelf && a.contractPoints >= 25);
+                    if (elci != null)
+                    {
+                        Debug.Log($"<color=yellow>[Competition] {elci.gameObject.name} 25 Krallık Puanına ulaştı ve oyunu bitirdi!</color>");
+                        EndTournament(elci); // Hedefe ulaştığı için forcedWinner olarak yolla
+                    }
                 }
                 break;
         }
@@ -179,7 +198,11 @@ public class CompetitionManager : MonoBehaviour
         if (forcedWinner != null)
         {
             kazananIsmi = forcedWinner.gameObject.name;
-            kazananDetayi = $"Hayatta Kalan Son Lord!\nKasa: {forcedWinner.currentMoney:F0} G";
+
+            if (SessionData.CurrentMode == SessionData.GameMode.SarayinElcisi)
+                kazananDetayi = $"Sarayın Baş Elçisi!\nKrallık Puanı: {forcedWinner.contractPoints} (Hedefe Ulaştı!)\nKasa: {forcedWinner.currentMoney:F0} G";
+            else
+                kazananDetayi = $"Hayatta Kalan Son Lord!\nKasa: {forcedWinner.currentMoney:F0} G";
         }
         // B. SÜRE BİTTİYSE MODA GÖRE KAZANAN HESAPLA
         else
@@ -190,20 +213,16 @@ public class CompetitionManager : MonoBehaviour
                     CalculateAltinYoluWinner(out kazananIsmi, out kazananDetayi);
                     break;
 
-                case SessionData.GameMode.Loncalar:
+                case SessionData.GameMode.LoncalarIttifaki:
                     CalculateGuildWinner(out kazananIsmi, out kazananDetayi);
                     break;
 
                 case SessionData.GameMode.SarayinElcisi:
-                    kazananIsmi = "SARAYIN ELÇİSİ (WIP)";
-                    kazananDetayi = "Krallık Puanı Sistemi bekleniyor...";
-                    // İleride: CalculateDiplomatWinner(out kazananIsmi, out kazananDetayi);
+                    CalculateDiplomatWinner(out kazananIsmi, out kazananDetayi); // YENİ EKLENDİ
                     break;
 
-                case SessionData.GameMode.Tekel:
-                    kazananIsmi = "TEKEL MODU (WIP)";
-                    kazananDetayi = "Pazar Payı Sistemi bekleniyor...";
-                    // İleride: CalculateMonopolyWinner(out kazananIsmi, out kazananDetayi);
+                case SessionData.GameMode.TekelSavaslari:
+                    CalculateMonopolyWinner(out kazananIsmi, out kazananDetayi);
                     break;
             }
         }
@@ -279,6 +298,83 @@ public class CompetitionManager : MonoBehaviour
             guildName = $"LONCA {bestGuildIndex + 1}";
             guildStats = $"Lonca Toplam Kasası:\n{maxLoncaKasa:F0} G";
         }
+    }
+
+    private void CalculateDiplomatWinner(out string winnerName, out string winnerStats)
+    {
+        winnerName = "KİMSE KAZANAMADI";
+        winnerStats = "Herkes elendi.";
+
+        if (aliveAgentsCount > 0)
+        {
+            // En çok puanı olanı bul. Puanlar eşitse parası çok olanı seç!
+            var diplomat = allAgents
+                .Where(a => a.gameObject.activeSelf)
+                .OrderByDescending(a => a.contractPoints)
+                .ThenByDescending(a => a.currentMoney)
+                .FirstOrDefault();
+
+            if (diplomat != null)
+            {
+                winnerName = diplomat.gameObject.name;
+                winnerStats = $"Sarayın Baş Elçisi!\nKrallık Puanı: {diplomat.contractPoints}\nKasa: {diplomat.currentMoney:F0} G";
+            }
+        }
+    }
+
+    private void CalculateMonopolyWinner(out string winnerName, out string winnerStats)
+    {
+        winnerName = "PAZARIN EFENDİLERİ";
+        System.Text.StringBuilder sb = new System.Text.StringBuilder();
+
+        // 12 Temel Ürünün Listesi ve Türkçe Çevirileri
+        string[] allItems = { "Wheat", "Wood", "Fish", "Cotton", "Meat", "Coal", "Leather", "Iron", "Clothes", "Tools", "Spices", "Jewelry" };
+        string[] trItems = { "Buğday", "Odun", "Balık", "Pamuk", "Et", "Kömür", "Deri", "Demir", "Kıyafet", "Alet", "Baharat", "Mücevher" };
+
+        sb.AppendLine("<size=120%><color=yellow>--- ÜRÜN KRALLARI ---</color></size>");
+        sb.AppendLine("");
+
+        Dictionary<MerchantAgent, int> kingCount = new Dictionary<MerchantAgent, int>();
+        foreach (var a in allAgents) kingCount[a] = 0;
+
+        for (int i = 0; i < allItems.Length; i++)
+        {
+            string item = allItems[i];
+            string trName = trItems[i];
+            MerchantAgent bestAgent = null;
+            int maxSold = 0;
+
+            foreach (var agent in allAgents)
+            {
+                if (agent.soldItemsTracker != null && agent.soldItemsTracker.TryGetValue(item, out int sold) && sold > maxSold)
+                {
+                    maxSold = sold;
+                    bestAgent = agent;
+                }
+            }
+
+            if (bestAgent != null)
+            {
+                // Örn: 1-) Buğday Kralı - Kervan_5 - 86 tane sattı
+                sb.AppendLine($"{i + 1}-) <color=orange>{trName} Kralı</color> - <color=yellow>{bestAgent.gameObject.name}</color> - <color=green>{maxSold} tane sattı</color>");
+                kingCount[bestAgent]++;
+            }
+            else
+            {
+                sb.AppendLine($"{i + 1}-) <color=orange>{trName} Kralı</color> - <color=grey>Kimse Satmadı</color> - <color=green>0 tane sattı</color>");
+            }
+        }
+
+        // Genel Kazanan: En çok dalda "Kral" olan ajan
+        var ultimateWinner = kingCount.OrderByDescending(x => x.Value).ThenByDescending(x => x.Key.currentMoney).FirstOrDefault();
+        if (ultimateWinner.Key != null && ultimateWinner.Value > 0)
+        {
+            winnerName = $"👑 BÜYÜK TEKEL: {ultimateWinner.Key.gameObject.name}";
+            sb.AppendLine("");
+            sb.AppendLine($"<color=cyan>Toplam {ultimateWinner.Value} farklı üründe pazar lideri!</color>");
+        }
+
+        winnerStats = sb.ToString();
     }
 
     // =========================================================

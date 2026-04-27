@@ -202,7 +202,7 @@ public class MasterGameManager : MonoBehaviour
                 if (eventManager != null) eventManager.productionEventsCount = 20; // Kaos!
                 break;
 
-            case SessionData.GameMode.Loncalar:
+            case SessionData.GameMode.LoncalarIttifaki:
                 Debug.Log("Oyun Modu: Loncalar Savaşı başlatıldı.");
                 // Ajan sayısını 20 yap (Gelecekte)
                 break;

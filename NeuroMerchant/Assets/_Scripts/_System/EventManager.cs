@@ -7,7 +7,10 @@ public class EventManager : MonoBehaviour
     public static EventManager Instance;
 
     [Header("DEVELOPER MODE")]
-    public bool trainingMode = true; 
+    public bool trainingMode = true;
+
+    [Header("Debug Settings")]
+    public bool enableDebugLogs = false;
 
     public enum EventType { None, Festival, Famine, Boom, War }
 
@@ -108,7 +111,7 @@ public class EventManager : MonoBehaviour
 
         // Konsola yazarken hangi zorlukta kaç kriz çıktığını da görelim
         string modeLog = trainingMode ? "TRAINING" : (isWinterMode ? $"WINTER CHAOS (Zorluk: {SessionData.DifficultyLevel})" : "FULL PROD");
-        Debug.Log($"<color=magenta>EVENT MANAGER:</color> Drafting schedule ({modeLog}). Target Events: {eventCount}");
+        if (enableDebugLogs) Debug.Log($"<color=magenta>EVENT MANAGER:</color> Drafting schedule ({modeLog}). Target Events: {eventCount}");
 
         int safeCount = Mathf.Min(eventCount, allCities.Length);
         List<CityController> potentialTargets = allCities.OrderBy(x => Random.value).Take(safeCount).ToList();
@@ -135,7 +138,7 @@ public class EventManager : MonoBehaviour
             }
 
             scheduledEvents.Add(newPlan);
-            Debug.Log($"<color=grey>SCHEDULED:</color> {newPlan.type} in {city.cityName} on Day {newPlan.startDayOfMonth}.");
+            if (enableDebugLogs) Debug.Log($"<color=grey>SCHEDULED:</color> {newPlan.type} in {city.cityName} on Day {newPlan.startDayOfMonth}.");
         }
     }
 
@@ -176,7 +179,7 @@ public class EventManager : MonoBehaviour
 
             if (evt.daysElapsed >= evt.durationDays)
             {
-                Debug.Log($"<color=green>EVENT ENDED:</color> {evt.name} is over in {evt.targetCity.cityName}.");
+                if (enableDebugLogs) Debug.Log($"<color=green>EVENT ENDED:</color> {evt.name} is over in {evt.targetCity.cityName}.");
                 evt.targetCity.ClearEvent();
                 activeEvents.RemoveAt(i);
             }
@@ -218,6 +221,6 @@ public class EventManager : MonoBehaviour
         plan.targetCity.ApplyEvent(newEvent.name, newEvent.consumptMod, newEvent.productMod);
 
         activeEvents.Add(newEvent);
-        Debug.Log($"<color=red>EVENT STARTED:</color> {newEvent.name} ({plan.type}) in {plan.targetCity.cityName}!");
+        if (enableDebugLogs) Debug.Log($"<color=red>EVENT STARTED:</color> {newEvent.name} ({plan.type}) in {plan.targetCity.cityName}!");
     }
 }

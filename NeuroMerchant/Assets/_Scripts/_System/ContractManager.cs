@@ -7,7 +7,10 @@ public class ContractManager : MonoBehaviour
     public static ContractManager Instance;
 
     [Header("DEVELOPER MODE")]
-    public bool trainingMode = true; // <-- BUNU WORLGENERATOR ILE AYNI YAP
+    public bool trainingMode = true; 
+
+    [Header("Debug Settings")]
+    public bool enableDebugLogs = false; 
 
     // PLANLANMIŞ SÖZLEŞME
     [System.Serializable]
@@ -19,6 +22,7 @@ public class ContractManager : MonoBehaviour
         public int requiredAmount;
         public int durationDays;
         public int rewardGold;
+        public int contractPoints;
     }
 
     // AKTİF SÖZLEŞME
@@ -30,6 +34,7 @@ public class ContractManager : MonoBehaviour
         public int requiredAmount;
         public int rewardGold;
         public int daysLeft;
+        public int contractPoints;
     }
 
     [Header("Status")]
@@ -100,8 +105,15 @@ public class ContractManager : MonoBehaviour
         if (allCities.Length == 0 || allItems.Length == 0) return;
 
         int contractCount = trainingMode ? trainingContractCount : productionContractCount;
+        bool isDiplomatMode = (!trainingMode && SessionData.CurrentMode == SessionData.GameMode.SarayinElcisi);
 
-        Debug.Log($"<color=magenta>CONTRACT MANAGER:</color> Drafting {contractCount} contracts (Mode: {(trainingMode ? "TRAINING" : "FULL")})...");
+        // 1. İHALE FREKANSI: Elçi modunda zorluk fark etmeksizin her ay 10 ile 20 arası ihale çıkar
+        if (isDiplomatMode)
+        {
+            contractCount = Random.Range(10, 21); // 10 ile 20 arası (21 dahil değil)
+        }
+
+        if (enableDebugLogs) Debug.Log($"<color=magenta>CONTRACT MANAGER:</color> Drafting {contractCount} contracts...");
 
         var consumers = allCities.Where(c => !c.isProducer).ToList();
         if (consumers.Count == 0) consumers = allCities.ToList();
@@ -110,20 +122,90 @@ public class ContractManager : MonoBehaviour
         {
             PendingContract newPlan = new PendingContract();
             newPlan.targetCity = consumers[Random.Range(0, consumers.Count)];
-            newPlan.requiredItem = allItems[Random.Range(0, allItems.Length)];
-
             newPlan.startDayOfMonth = Random.Range(1, 29);
-            newPlan.durationDays = Random.Range(7, 15);
 
-            newPlan.requiredAmount = Random.Range(20, 101);
+            // 2. YENİ ALGORİTMA: ZORLUĞA GÖRE OLASILIK (YÜZDE), TIER VE MİKTAR BELİRLEME
+            ItemTier selectedTier = ItemTier.Tier1;
+            int minAmount = 20, maxAmount = 50;
+            int minDuration = 7, maxDuration = 15;
 
-            // ODUL HESABI: (BasePrice * Miktar) + %30-%50 Bonus
+            if (isDiplomatMode)
+            {
+                int zar = Random.Range(0, 100); // %0 ile %99 arası zar atıyoruz
+
+                if (SessionData.DifficultyLevel == 0) // --- KOLAY ---
+                {
+                    // %100 Tier 1 | Miktar: 10-40 | Süre: Uzun
+                    selectedTier = ItemTier.Tier1;
+                    minAmount = 10; maxAmount = 25;
+                    minDuration = 15; maxDuration = 25;
+                }
+                else if (SessionData.DifficultyLevel == 1) // --- ORTA ---
+                {
+                    if (zar < 50)
+                    {
+                        // %50 İhtimal: Tier 1 | Miktar: 30-50
+                        selectedTier = ItemTier.Tier1;
+                        minAmount = 30; maxAmount = 50;
+                    }
+                    else
+                    {
+                        // %50 İhtimal: Tier 2 | Miktar: 10-40
+                        selectedTier = ItemTier.Tier2;
+                        minAmount = 10; maxAmount = 40;
+                    }
+                    minDuration = 10; maxDuration = 20;
+                }
+                else // --- ZOR ---
+                {
+                    if (zar < 30)
+                    {
+                        // %30 İhtimal: Tier 1 | Miktar: 50-100 (Kargoyu fulletir!)
+                        selectedTier = ItemTier.Tier1;
+                        minAmount = 50; maxAmount = 100;
+                    }
+                    else if (zar < 60)
+                    {
+                        // %30 İhtimal (30-59 arası): Tier 2 | Miktar: 30-60
+                        selectedTier = ItemTier.Tier2;
+                        minAmount = 30; maxAmount = 50;
+                    }
+                    else
+                    {
+                        // %40 İhtimal (60-99 arası): Tier 3 | Miktar: 15-40
+                        selectedTier = ItemTier.Tier3;
+                        minAmount = 15; maxAmount = 20;
+                    }
+                    minDuration = 7; maxDuration = 15; // Süre çok kısıtlı!
+                }
+            }
+            else
+            {
+                // Altın Yolu vb. diğer modlar için standart ayar
+                selectedTier = (ItemTier)Random.Range(0, 3); // Rastgele Tier
+                minAmount = 20; maxAmount = 100;
+            }
+
+            // Seçilen Tier'a uygun eşyaları filtrele ve birini seç
+            List<ItemData> validItems = allItems.Where(x => x.tier == selectedTier).ToList();
+            if (validItems.Count == 0) validItems = allItems.ToList(); // Güvenlik ağı
+
+            newPlan.requiredItem = validItems[Random.Range(0, validItems.Count)];
+            newPlan.requiredAmount = Random.Range(minAmount, maxAmount + 1); // +1 çünkü int'te son rakam dahil edilmez
+            newPlan.durationDays = Random.Range(minDuration, maxDuration + 1);
+
+            // 3. ÖDÜL VE PUAN HESAPLAMA
             float baseValue = newPlan.requiredItem.basePrice * newPlan.requiredAmount;
             float bonusMultiplier = Random.Range(1.3f, 1.5f);
             newPlan.rewardGold = Mathf.RoundToInt(baseValue * bonusMultiplier);
 
+            // Puanı Tier seviyesine göre belirle
+            if (newPlan.requiredItem.tier == ItemTier.Tier1) newPlan.contractPoints = 1;
+            else if (newPlan.requiredItem.tier == ItemTier.Tier2) newPlan.contractPoints = 2;
+            else newPlan.contractPoints = 3;
+
             scheduledContracts.Add(newPlan);
-            Debug.Log($"<color=grey>CONTRACT SCHEDULED:</color> {newPlan.requiredAmount}x {newPlan.requiredItem.itemName} to {newPlan.targetCity.cityName} on Day {newPlan.startDayOfMonth}");
+            if (enableDebugLogs) Debug.Log($"<color=grey>CONTRACT SCHEDULED:</color> {newPlan.requiredAmount}x {newPlan.requiredItem.itemName}...");
         }
     }
 
@@ -148,7 +230,7 @@ public class ContractManager : MonoBehaviour
             activeContracts[i].daysLeft--;
             if (activeContracts[i].daysLeft <= 0)
             {
-                Debug.Log($"<color=red>CONTRACT FAILED/EXPIRED:</color> {activeContracts[i].requiredItem.itemName} to {activeContracts[i].targetCity.cityName}");
+                if (enableDebugLogs) Debug.Log($"<color=red>CONTRACT FAILED/EXPIRED:</color> {activeContracts[i].requiredItem.itemName} to {activeContracts[i].targetCity.cityName}");
                 activeContracts.RemoveAt(i);
             }
         }
@@ -162,22 +244,51 @@ public class ContractManager : MonoBehaviour
         newContract.requiredAmount = plan.requiredAmount;
         newContract.rewardGold = plan.rewardGold;
         newContract.daysLeft = plan.durationDays;
+        newContract.contractPoints = plan.contractPoints;
+
+        if (SessionData.CurrentMode == SessionData.GameMode.SarayinElcisi)
+        {
+            var tumAjanlar = FindObjectsOfType<MerchantAgent>();
+            foreach (var ajan in tumAjanlar)
+            {
+                // Ajanın kulağına fısılda (Fog of War'u deliyoruz)
+                ajan.ReceiveContractBroadcast(newContract.targetCity, newContract.requiredItem);
+            }
+        }
 
         activeContracts.Add(newContract);
-        Debug.Log($"<color=orange>NEW CONTRACT ACTIVE:</color> {newContract.targetCity.cityName} needs {newContract.requiredAmount}x {newContract.requiredItem.itemName} in {newContract.daysLeft} days! Reward: {newContract.rewardGold} G");
+        if (enableDebugLogs) Debug.Log($"<color=orange>NEW CONTRACT ACTIVE:</color> {newContract.targetCity.cityName} needs {newContract.requiredAmount}x...");
     }
 
 
-    public bool TryCompleteContract(CityController city, ItemData item, int amount, out int reward)
+    public bool TryCompleteContract(CityController city, ItemData item, int amount, out int rewardGold, out int rewardPoints)
     {
-        reward = 0;
+        rewardGold = 0;
+        rewardPoints = 0;
         var contract = activeContracts.Find(c => c.targetCity == city && c.requiredItem == item);
 
-        if (contract != null && amount >= contract.requiredAmount)
+        if (contract != null)
         {
-            reward = contract.rewardGold;
-            activeContracts.Remove(contract);
-            return true;
+            // KURAL: AJANIN GETİRDİĞİ MAL İSTENENDEN BÜYÜK VEYA EŞİT OLMALI!
+            if (amount >= contract.requiredAmount)
+            {
+                // ========================================================
+                // TEK ATIŞTA İHALEYİ KAPATTI!
+                // ========================================================
+                rewardGold = contract.rewardGold;       // Kralın devasa altın ödülü
+                rewardPoints = contract.contractPoints; // Krallık puanı
+
+                activeContracts.Remove(contract);       // İhale başarıyla bitti, haritadan sil!
+                return true;
+            }
+            else
+            {
+                // ========================================================
+                // EKSİK MAL GETİRDİ (TAKSİT YASAK!)
+                // ========================================================
+                // İhale iptal edilmez, ajan o malı normal fiyattan satar, devasa ödülü ve puanı ALAMAZ.
+                return false;
+            }
         }
         return false;
     }

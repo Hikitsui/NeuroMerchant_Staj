@@ -15,9 +15,10 @@ public class MainMenuController : MonoBehaviour
     public TextMeshProUGUI modeDescriptionText;
 
     [Header("Dinamik Ayar Panelleri")]
-    public GameObject commonSettingsPanel;     // Ajan Slider'ı burada olacak
-    public GameObject altinYoluSettingsPanel;  // Gün Slider'ı burada olacak
-    public GameObject acimasizKisSettingsPanel;// Zorluk Dropdown'ı burada olacak
+    public GameObject agentSettingGroup;       
+    public GameObject daysSettingGroup;  
+    public GameObject difficultySettingGroup;
+    public GameObject guildSettingGroup;
 
     [Header("Ayar Kontrolleri")]
     public Slider agentSlider;
@@ -109,11 +110,20 @@ public class MainMenuController : MonoBehaviour
         int level = difficultyDropdown.value;
         SessionData.DifficultyLevel = level;
 
-        if (difficultyDescText != null)
+        if (difficultyDescText == null) return;
+
+        // SEÇİLEN MODA GÖRE ZORLUK AÇIKLAMASINI DEĞİŞTİR
+        if (SessionData.CurrentMode == SessionData.GameMode.AcimasizKis)
         {
             if (level == 0) difficultyDescText.text = "<color=green>Zorluk: KOLAY</color>\nMakas: %10";
             else if (level == 1) difficultyDescText.text = "<color=yellow>Zorluk: ORTA</color>\nMakas: %20";
-            else if (level == 2) difficultyDescText.text = "<color=red>Zorluk: ZOR</color>\nMakas: %30";
+            else if (level == 2) difficultyDescText.text = "<color=red>Zorluk: ZOR</color>\nMakas: %30 (Saf Kaos!)";
+        }
+        else if (SessionData.CurrentMode == SessionData.GameMode.SarayinElcisi)
+        {
+            if (level == 0) difficultyDescText.text = "<color=green>İhale: KOLAY</color>\nÜrünler: Temel Gıda ve Odun\nSüre: Uzun";
+            else if (level == 1) difficultyDescText.text = "<color=yellow>İhale: ORTA</color>\nÜrünler: İşlenmiş Eşyalar\nSüre: Normal";
+            else if (level == 2) difficultyDescText.text = "<color=red>İhale: ZOR</color>\nÜrünler: Lüks ve Zor Bulunanlar\nSüre: Kısa";
         }
     }
 
@@ -122,12 +132,14 @@ public class MainMenuController : MonoBehaviour
     // ==========================================
     private void UpdateDetailsScreen()
     {
-        // Önce tüm özel ayar panellerini gizle
-        if (altinYoluSettingsPanel != null) altinYoluSettingsPanel.SetActive(false);
-        if (acimasizKisSettingsPanel != null) acimasizKisSettingsPanel.SetActive(false);
+        // 1. TÜM GRUPLARI KAPAT (Temiz sayfa)
+        if (agentSettingGroup != null) agentSettingGroup.SetActive(false);
+        if (daysSettingGroup != null) daysSettingGroup.SetActive(false);
+        if (difficultySettingGroup != null) difficultySettingGroup.SetActive(false);
+        if (guildSettingGroup != null) guildSettingGroup.SetActive(false);
 
-        // Ortak panel (Ajan Sayısı) hep açık kalsın
-        if (commonSettingsPanel != null) commonSettingsPanel.SetActive(true);
+        // Ajan sayısı her modda lazım, direkt açalım
+        if (agentSettingGroup != null) agentSettingGroup.SetActive(true);
 
         switch (SessionData.CurrentMode)
         {
@@ -135,25 +147,48 @@ public class MainMenuController : MonoBehaviour
                 modeTitleText.text = "ALTIN YOLU";
                 modeDescriptionText.text = "Süre: Seçilen güne kadar.\nHedef: En yüksek servete ulaşan tüccar kazanır.";
 
-                if (altinYoluSettingsPanel != null) altinYoluSettingsPanel.SetActive(true);
-                // Gün sayısını güncelle
+                daysSettingGroup.SetActive(true); // Sadece Gün ve Ajan
                 if (daysSlider != null) OnDaysSliderChanged();
                 break;
 
             case SessionData.GameMode.AcimasizKis:
                 modeTitleText.text = "ACIMASIZ KIŞ";
-                modeDescriptionText.text = "Süre: Sınırsız.\nHedef: Piyasa krizlerine dayanıp ayakta kalan son Lord ol.";
-                SessionData.MaxDays = 999999; // Sınırsız
+                modeDescriptionText.text = "Süre: Sınırsız.\nHedef: Piyasa krizlerine dayanıp hayatta kalan son kervan ol.";
+                SessionData.MaxDays = 999999;
 
-                if (acimasizKisSettingsPanel != null) acimasizKisSettingsPanel.SetActive(true);
-                // Dropdown yazısını güncelle
+                difficultySettingGroup.SetActive(true); // Sadece Zorluk ve Ajan
                 if (difficultyDropdown != null) OnDifficultyDropdownChanged();
                 break;
 
-                // Diğer modların açıklamalarını ileride buraya eklersin...
+            case SessionData.GameMode.SarayinElcisi:
+                modeTitleText.text = "SARAYIN ELÇİSİ";
+                modeDescriptionText.text = "Süre: Seçilen güne kadar.\nHedef: Krallık ihalelerini tamamla, en yüksek puanı topla.";
+
+                daysSettingGroup.SetActive(true);       // Gün + 
+                difficultySettingGroup.SetActive(true); // Zorluk + Ajan
+
+                if (daysSlider != null) OnDaysSliderChanged();
+                if (difficultyDropdown != null) OnDifficultyDropdownChanged();
+                break;
+
+            case SessionData.GameMode.TekelSavaslari:
+                modeTitleText.text = "TEKEL SAVAŞLARI";
+                modeDescriptionText.text = "Süre: Seçilen güne kadar.\nHedef: Şehirlerdeki ürün stoklarını tekeline alarak rakipleri saf dışı bırak.";
+
+                daysSettingGroup.SetActive(true); // Sadece Gün ve Ajan (İsteğin üzerine)
+                if (daysSlider != null) OnDaysSliderChanged();
+                break;
+
+            case SessionData.GameMode.LoncalarIttifaki:
+                modeTitleText.text = "LONCALAR İTTİFAKI (WIP)";
+                modeDescriptionText.text = "Süre: Sınırsız.\nHedef: Diğer loncaları iflas ettir, haritaya hükmet.";
+
+                agentSettingGroup.SetActive(true);
+                guildSettingGroup.SetActive(true); // Sadece bu moda özel!
+                break;
         }
 
-        // Seçilen Type'ı da başlığa ekleyelim
+        // Seçilen Type'ı (PvE / AI Sim) başlığa ekle
         string typeStr = SessionData.CurrentType == SessionData.GameType.PlayerVsAI ? "PVE" : "AI SIM";
         modeTitleText.text += $" [{typeStr}]";
     }

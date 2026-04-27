@@ -47,6 +47,8 @@ public class MerchantAgent : Agent
     [Header("Ekonomi")]
     public float currentMoney = 1000f;
     public float startingMoney = 2000f;
+    public int contractPoints = 0;
+    public int completedContractsCount = 0;
 
     [Header("Dynamic Training Controls")]
     public float movementPenalty = -0.00005f;
@@ -163,6 +165,9 @@ public class MerchantAgent : Agent
     // ----------------------------------------------------------
     private Dictionary<int, SettlementMemory> memoryMap = new Dictionary<int, SettlementMemory>();
 
+    // TEKEL SAVAŞLARI: Ajanın sattığı malların çetelesi
+    public Dictionary<string, int> soldItemsTracker = new Dictionary<string, int>();
+
     // ----------------------------------------------------------
     // HAREKET
     // ----------------------------------------------------------
@@ -183,15 +188,30 @@ public class MerchantAgent : Agent
     {
         navAgent = GetComponent<NavMeshAgent>();
 
-        // CurriculumManager'dan kaydedilmis dersi al
-        if (curriculumManager != null)
+        if (curriculumManager == null)
+        {
+            curriculumManager = FindObjectOfType<CurriculumManager>();
+        }
+
+        // Eğitimdeysek hocayı (Curriculum) dinle
+        if (curriculumManager != null && curriculumManager.isTrainingMode)
+        {
             currentLesson = curriculumManager.currentLesson;
+        }
+        else
+        {
+            // Turnuva Modundaysak veya Hoca yoksa, Ajanlar otomatik "Master" (Ders 7) sayılır!
+            currentLesson = 7; // Tüm ürünler (Ders 6) ve Event Sinyalleri (Ders 7) açık.
+            if (enableDebugLogs) Debug.Log($"<color=green>[MASTER AGENT]</color> {gameObject.name} Turnuva modunda Master (Ders 7) olarak uyandı!");
+        }
 
         // Multi-env: Inspector'dan atanmadiysa kendi TrainingArea'sindan bul
         if (localBrokerManager == null)
             localBrokerManager = GetComponentInParent<BrokerManager>();
         if (localBrokerManager == null)
             localBrokerManager = transform.root.GetComponentInChildren<BrokerManager>();
+        if (localBrokerManager == null)
+            localBrokerManager = FindObjectOfType<BrokerManager>();
 
         // allSettlements yuklemesi: WorldGenerator Start()'ta bitmis olsun diye
         // OnEpisodeBegin'de de tekrar cagrilir (LoadSettlements)
@@ -583,9 +603,6 @@ public class MerchantAgent : Agent
             Debug.Log($"<color=grey>[{gameObject.name}] Para az ({currentMoney}G), Broker pas geçildi.</color>");
         }
 
-        if (currentLesson >= LESSON_EXT_SIGNALS)
-            CheckContractCompletion();
-
         // Derse gore o an bulunulan sehirdeki en karli urunu sec
         ItemData activeItem = GetBestAvailableItem(currentDestination);
 
@@ -659,6 +676,8 @@ public class MerchantAgent : Agent
         // --- SATIS: kargo dolu ---
         else
         {
+
+
             if (currentDestination == lastBuyCity) { AddReward(-0.05f); return; }
 
             var targetItem = currentDestination.marketItems.Find(x => x.itemData == carriedItemData);
@@ -666,9 +685,41 @@ public class MerchantAgent : Agent
             {
                 float ratio = AmountRatios[pendingSellAmountIndex];
                 int amountSell = Mathf.Max(1, Mathf.RoundToInt(carriedAmount * ratio));
+
+                if (!soldItemsTracker.ContainsKey(carriedItemData.itemName))
+                    soldItemsTracker[carriedItemData.itemName] = 0;
+
+                soldItemsTracker[carriedItemData.itemName] += amountSell;
+
                 float costPortion = lastCargoCost * ((float)amountSell / Mathf.Max(carriedAmount, 1));
                 int satisFiyatiBirim = currentDestination.GetPrice(carriedItemData);
                 int satisFiyatiToplam = currentDestination.GetBulkSellValue(carriedItemData, amountSell);
+
+                // ========================================================
+                // --- YENİ: İHALE TAMAMLAMA KONTROLÜ (SARAYIN ELÇİSİ) ---
+                // ========================================================
+                int ihaleOdulu = 0;
+                int kazanilanPuan = 0;
+                bool ihaleTamamlandiMi = false;
+
+                if (SessionData.CurrentMode == SessionData.GameMode.SarayinElcisi && ContractManager.Instance != null)
+                {
+                    // Ajan elindeki malı şehre basar. Eğer ihale şartlarını sağlıyorsa ihaleyi kapatır!
+                    ihaleTamamlandiMi = ContractManager.Instance.TryCompleteContract(currentDestination, carriedItemData, amountSell, out ihaleOdulu, out kazanilanPuan);
+                }
+
+                if (ihaleTamamlandiMi)
+                {
+                    satisFiyatiToplam = ihaleOdulu;
+                    this.contractPoints += kazanilanPuan;
+                    this.completedContractsCount++;
+
+                    // --- ŞALTERE BAĞLANDI ---
+                    if (enableDebugLogs)
+                        Debug.Log($"<color=yellow>🏆 İHALE TAMAMLANDI: {gameObject.name} krallığa malı teslim etti! (+{kazanilanPuan} Puan / {ihaleOdulu} G)</color>");
+                }
+                // ========================================================
+
                 float profit = satisFiyatiToplam - costPortion;
                 float alisFiyatiOrtalama = lastCargoCost / carriedAmount;
 
@@ -763,6 +814,30 @@ public class MerchantAgent : Agent
         }
     }
 
+    // --- YENİ: KRALİYET HABERCİSİNİ DİNLE ---
+    public void ReceiveContractBroadcast(CityController targetCity, ItemData requiredItem)
+    {
+        int cityIdx = allSettlements.IndexOf(targetCity);
+        int itemIdx = GetActiveItems().IndexOf(requiredItem);
+
+        if (cityIdx >= 0 && itemIdx >= 0)
+        {
+            // Ajan oraya gitmemiş olsa bile hafızasını "Tellal" sayesinde güncelliyor
+            if (!memoryMap.ContainsKey(cityIdx))
+                memoryMap[cityIdx] = new SettlementMemory();
+
+            // İhale fiyatını (illüzyonu) hafızaya zorla işliyoruz
+            float ihaleFiyati = targetCity.GetPrice(requiredItem);
+            memoryMap[cityIdx].knownPrices[itemIdx] = ihaleFiyati;
+
+            // Haberi aldığı anı kaydet (opsiyonel)
+            memoryMap[cityIdx].lastVisitTime = Time.time;
+
+            if (enableDebugLogs)
+                Debug.Log($"<color=cyan>[TELLAL]</color> {gameObject.name}: Kralın fermanını duydum! {targetCity.cityName} şehrinde {requiredItem.itemName} çok değerli!");
+        }
+    }
+
     // ==========================================================
     // BROKER AKSIYONU
     // ==========================================================
@@ -843,27 +918,6 @@ public class MerchantAgent : Agent
     }
 
     // ==========================================================
-    // KONTRAT TAMAMLAMA (Ders 7)
-    // ==========================================================
-    void CheckContractCompletion()
-    {
-        if (ContractManager.Instance == null || carriedItemData == null) return;
-        int reward;
-        if (ContractManager.Instance.TryCompleteContract(
-            currentDestination, carriedItemData, carriedAmount, out reward))
-        {
-            currentMoney += reward;
-            AddReward(Mathf.Clamp(reward * 0.001f, 0f, 3f));
-            carriedAmount = 0;
-            carriedItemData = null;
-            lastCargoCost = 0f;
-            lastBuyCity = null;
-            if (enableDebugLogs) Debug.Log($"<color=orange>[CONTRACT]</color> +{reward}G");
-        }
-    }
-
-
-    // ==========================================================
     // DERS BAZLI YARDIMCILAR
     // ==========================================================
 
@@ -907,14 +961,15 @@ public class MerchantAgent : Agent
         if (city == lastSellCity) return null;
 
         var items = GetActiveItems();
-        ItemData best = null;
-        float bestDealScore = float.MinValue;
+        ItemData bestItem = null;
+        float maxExpectedProfit = float.MinValue;
 
         foreach (var item in items)
         {
             var mi = city.marketItems.Find(x => x.itemData == item);
             if (mi == null || mi.currentStock <= 0) continue;
 
+            // 1. Alış Fiyatı
             int buyPrice = city.GetPrice(item);
             if (buyPrice <= 0) continue;
 
@@ -925,33 +980,51 @@ public class MerchantAgent : Agent
             int affordableAmount = Mathf.Min((int)(currentMoney / buyPrice), availableStock, maxCapacity);
             if (affordableAmount <= 0) continue;
 
-            // YENİ: Köyler için özel fırsat skoru
-            float dealScore;
-            if (city.isProducer)
-            {
-                // Köylerde: Düşük fiyat = yüksek fırsat
-                // basePrice 50 ise, buyPrice 25 → priceFactor 0.75, buyPrice 10 → priceFactor 0.9
-                float priceFactor = 1f - (buyPrice / (item.basePrice * 2f));
-                priceFactor = Mathf.Clamp01(priceFactor);
-                float stockFactor = (float)mi.currentStock / mi.maxStock;
-                dealScore = priceFactor * 0.7f + stockFactor * 0.3f;
+            // ==========================================================
+            // 2. YENİ: GELECEĞİ ÖNGÖR (Predict Future Price & Evaluate)
+            // ==========================================================
+            int itemIndex = items.IndexOf(item);
+            float bestFutureSellPrice = 0f;
 
-                if (enableDebugLogs && city.isProducer)
-                    Debug.Log($"🏡 KÖY FIRSATI: {city.cityName} | {item.itemName} | Fiyat:{buyPrice}G | Stok:{mi.currentStock}/{mi.maxStock} | Skor:{dealScore:F2}");
-            }
-            else
+            // Ajan beynindeki (memoryMap) tüm şehirlere bakar. 
+            // "Eğer ben bunu alırsam, en pahalı nereye satabilirim?"
+            for (int i = 0; i < ActiveSettlementCount() && i < allSettlements.Count; i++)
             {
-                // Şehirlerde: Stok fazlası = fırsat (eski mantık)
-                dealScore = (float)mi.currentStock / mi.maxStock;
+                var targetCity = allSettlements[i];
+                if (targetCity == city) continue; // Aldığı yere geri satmayacak
+
+                if (memoryMap.ContainsKey(i))
+                {
+                    float knownSellPrice = memoryMap[i].knownPrices[itemIndex];
+                    if (knownSellPrice > bestFutureSellPrice)
+                    {
+                        bestFutureSellPrice = knownSellPrice;
+                    }
+                }
             }
 
-            if (dealScore > bestDealScore)
+            // 3. KAR HESABI: "En iyi satış yerindeki fiyat - Buradaki alış fiyatım"
+            // Beklenen Net Kar (Miktar ile çarpılarak toplam fırsat bulunur)
+            float expectedProfit = (bestFutureSellPrice - buyPrice) * affordableAmount;
+
+            // 4. EĞER BİR İHALE VARSA:
+            // İllüzyon sayesinde bestFutureSellPrice devasa (Örn: 150 G) olacağı için, 
+            // expectedProfit tavan yapacak ve ajan gözü kapalı bu malı seçecektir!
+
+            // Eğitimdeki köyler için ekstra bir çekicilik kat sayısı (Opsiyonel güvenlik ağı)
+            if (city.isProducer && expectedProfit < 500)
             {
-                bestDealScore = dealScore;
-                best = item;
+                expectedProfit += (mi.currentStock * 0.5f);
+            }
+
+            if (expectedProfit > maxExpectedProfit)
+            {
+                maxExpectedProfit = expectedProfit;
+                bestItem = item;
             }
         }
-        return best;
+
+        return bestItem;
     }
 
     // Doygunluk her zaman aktif (Ders 1'den itibaren)
@@ -1038,6 +1111,8 @@ public class MerchantAgent : Agent
             localBrokerManager = GetComponentInParent<BrokerManager>();
         if (localBrokerManager == null)
             localBrokerManager = transform.root.GetComponentInChildren<BrokerManager>();
+        if (localBrokerManager == null)
+            localBrokerManager = FindObjectOfType<BrokerManager>();
 
         List<CityController> sourceList = new List<CityController>();
 

@@ -207,15 +207,15 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 48
-  m_fontSizeBase: 48
+  m_fontSize: 44
+  m_fontSizeBase: 44
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 0
-  m_HorizontalAlignment: 2
-  m_VerticalAlignment: 256
+  m_HorizontalAlignment: 1
+  m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_wordSpacing: 0
@@ -2236,7 +2236,7 @@ MonoBehaviour:
   curriculumManager: {fileID: 1457905380}
   competitionManager: {fileID: 655581373}
   timeManager: {fileID: 443342848}
-  autoFindManagers: 0
+  autoFindManagers: 1
 --- !u!1 &1616904580
 GameObject:
   m_ObjectHideFlags: 0
@@ -3110,8 +3110,8 @@ MonoBehaviour:
   allSettlements: []
   localInfoCost: 50
   globalInfoCost: 200
-  tier1Cost: 1000
-  tier2Cost: 2500
+  tier1Cost: 500
+  tier2Cost: 1000
 --- !u!1 &5648848343386201457
 GameObject:
   m_ObjectHideFlags: 0

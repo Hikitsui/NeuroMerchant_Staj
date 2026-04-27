@@ -13,7 +13,7 @@ public class MerchantQueueUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI leaderboardBodyText;
 
     [Header("Ayarlar")]
-    [SerializeField] private int maxVisibleMerchants = 10;
+    [SerializeField] private int maxVisibleMerchants = 12;
     [SerializeField] private bool autoUpdateOnNewDay = true;
 
     private void Awake()
@@ -44,47 +44,102 @@ public class MerchantQueueUI : MonoBehaviour
     [ContextMenu("Refresh Queue")]
     public void RefreshQueue()
     {
-        // CompetitionManager'daki ajan listesini al
         if (CompetitionManager.Instance == null || CompetitionManager.Instance.allAgents == null) return;
 
-        // Ajanları paralarına göre sırala (İflas edenler en alta)
-        var sortedAgents = CompetitionManager.Instance.allAgents
-            .OrderByDescending(a => a.gameObject.activeSelf && a.currentMoney > 0 ? a.currentMoney : -1f)
-            .Take(maxVisibleMerchants)
-            .ToList();
+        bool isDiplomatMode = SessionData.CurrentMode == SessionData.GameMode.SarayinElcisi;
+        bool isMonopolyMode = SessionData.CurrentMode == SessionData.GameMode.TekelSavaslari;
 
         StringBuilder sb = new StringBuilder();
 
-        for (int i = 0; i < sortedAgents.Count; i++)
+        if (isMonopolyMode)
         {
-            var agent = sortedAgents[i];
-            bool isAlive = agent.gameObject.activeSelf && agent.currentMoney > 0;
+            // TEKEL SAVAŞLARI İÇİN ÖZEL UI (Ürün Kralları Listesi)
+            string[] allItems = { "Wheat", "Wood", "Fish", "Cotton", "Meat", "Coal", "Leather", "Iron", "Clothes", "Tools", "Spices", "Jewelry" };
+            string[] trItems = { "Buğday", "Odun", "Balık", "Pamuk", "Et", "Kömür", "Deri", "Demir", "Kıyafet", "Alet", "Baharat", "Mücevher" };
 
-            // Sıra ve İsim
-            string rankColor = i == 0 ? "yellow" : (isAlive ? "white" : "red");
-            sb.Append($"<color={rankColor}>{i + 1}- {agent.gameObject.name}</color> ");
-
-            // Para Durumu
-            sb.Append($"<color=yellow>{agent.currentMoney:F0}$</color> ");
-
-            // Yük Durumu
-            if (isAlive)
+            for (int i = 0; i < allItems.Length; i++)
             {
-                if (agent.carriedItemData != null && agent.carriedAmount > 0)
+                string item = allItems[i];
+                string trName = trItems[i];
+                MerchantAgent bestAgent = null;
+                int maxSold = 0;
+
+                foreach (var agent in CompetitionManager.Instance.allAgents)
                 {
-                    sb.Append($"| <color=#00FF00>{agent.carriedAmount}x {agent.carriedItemData.itemName}</color>");
+                    if (agent.soldItemsTracker != null && agent.soldItemsTracker.TryGetValue(item, out int sold) && sold > maxSold)
+                    {
+                        maxSold = sold;
+                        bestAgent = agent;
+                    }
+                }
+
+                if (bestAgent != null)
+                {
+                    // 1-) Buğday Kralı - Kervan_5 - 86 tane sattı
+                    sb.AppendLine($"<color=white>{i + 1}-)</color> <color=orange>{trName} Kralı</color> - <color=yellow>{bestAgent.gameObject.name}</color> - <color=green>{maxSold} tane sattı</color>");
                 }
                 else
                 {
-                    sb.Append("| <color=#AAAAAA>Boş</color>");
+                    sb.AppendLine($"<color=white>{i + 1}-)</color> <color=orange>{trName} Kralı</color> - <color=grey>Yok</color> - <color=green>0 tane sattı</color>");
                 }
+            }
+        }
+        else
+        {
+            // DİĞER MODLAR İÇİN NORMAL AJAN SIRALAMASI
+            List<MerchantAgent> sortedAgents;
+
+            if (isDiplomatMode)
+            {
+                sortedAgents = CompetitionManager.Instance.allAgents
+                    .OrderByDescending(a => a.gameObject.activeSelf && a.currentMoney > 0 ? a.contractPoints : -1)
+                    .ThenByDescending(a => a.gameObject.activeSelf && a.currentMoney > 0 ? a.currentMoney : -1f)
+                    .Take(maxVisibleMerchants)
+                    .ToList();
             }
             else
             {
-                sb.Append("| <color=red>ELENDİ</color>");
+                sortedAgents = CompetitionManager.Instance.allAgents
+                    .OrderByDescending(a => a.gameObject.activeSelf && a.currentMoney > 0 ? a.currentMoney : -1f)
+                    .Take(maxVisibleMerchants)
+                    .ToList();
             }
 
-            sb.AppendLine();
+            for (int i = 0; i < sortedAgents.Count; i++)
+            {
+                var agent = sortedAgents[i];
+                bool isAlive = agent.gameObject.activeSelf && agent.currentMoney > 0;
+
+                string rankColor = i == 0 ? "yellow" : (isAlive ? "white" : "red");
+                sb.Append($"<color={rankColor}>{i + 1}- {agent.gameObject.name}</color> ");
+
+                if (isDiplomatMode)
+                {
+                    sb.Append($"<color=cyan>🏆 {agent.contractPoints} Puan ({agent.completedContractsCount} İhale)</color> | <color=yellow>{agent.currentMoney:F0}$</color> ");
+                }
+                else
+                {
+                    sb.Append($"<color=yellow>{agent.currentMoney:F0}$</color> ");
+                }
+
+                if (isAlive)
+                {
+                    if (agent.carriedItemData != null && agent.carriedAmount > 0)
+                    {
+                        sb.Append($"| <color=#00FF00>{agent.carriedAmount}x {agent.carriedItemData.itemName}</color>");
+                    }
+                    else
+                    {
+                        sb.Append("| <color=#AAAAAA>Boş</color>");
+                    }
+                }
+                else
+                {
+                    sb.Append("| <color=red>ELENDİ</color>");
+                }
+
+                sb.AppendLine();
+            }
         }
 
         leaderboardBodyText.text = sb.ToString();
