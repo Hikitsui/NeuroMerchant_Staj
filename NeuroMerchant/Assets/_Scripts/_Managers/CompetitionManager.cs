@@ -143,8 +143,7 @@ public class CompetitionManager : MonoBehaviour
         {
             case SessionData.GameMode.AltinYolu:
             case SessionData.GameMode.TekelSavaslari:
-            case SessionData.GameMode.LoncalarIttifaki:
-                // Süreli Modlar
+                // SADECE SÜRELİ MODLAR
                 if (currentDay >= maxDays)
                 {
                     Debug.Log($"<color=yellow>[Competition] Süre doldu! ({maxDays} gün)</color>");
@@ -152,11 +151,46 @@ public class CompetitionManager : MonoBehaviour
                 }
                 break;
 
-            case SessionData.GameMode.AcimasizKis:
-                // Süresiz Mod: Hayatta kalan son kişiyi bul
-                if (aliveAgentsCount <= 1 && currentDay > 5) // 30 yerine 5 yaptık
+            case SessionData.GameMode.LoncalarIttifaki:
+                // HEM SÜRELİ HEM DE "SON LONCA AYAKTA KALSIN" MODU
+
+                // 1. KOŞUL: Süre bitti mi?
+                if (currentDay >= maxDays)
                 {
-                    // Artık currentMoney sormamıza gerek yok, sahnede açıksa yaşıyordur
+                    Debug.Log($"<color=yellow>[Competition] Süre doldu! ({maxDays} gün)</color>");
+                    EndTournament();
+                    return; // Alt koda geçip iki kez bitirmemesi için dönüyoruz
+                }
+
+                // 2. KOŞUL: Kaç farklı lonca hayatta kaldı?
+                int numGuilds = SessionData.GuildCount > 0 ? SessionData.GuildCount : 5;
+                int agentsPerGuild = Mathf.Max(1, Mathf.CeilToInt((float)allAgents.Count / (float)numGuilds));
+
+                // HashSet aynı sayıyı sadece bir kere tutar (Örn: 2 kervan da 1. Loncadan ise sadece '1' sayısını tutar)
+                HashSet<int> aliveGuilds = new HashSet<int>();
+
+                for (int i = 0; i < allAgents.Count; i++)
+                {
+                    // Kervan yaşıyorsa, onun lonca indeksini 'Yaşayan Loncalar' listesine ekle
+                    if (allAgents[i].gameObject.activeSelf && allAgents[i].currentMoney > 0)
+                    {
+                        int gIndex = i / agentsPerGuild;
+                        aliveGuilds.Add(gIndex);
+                    }
+                }
+
+                // Eğer sadece 1 (veya hiç) lonca ayakta kaldıysa süreyi beklemeden bitir!
+                if (aliveGuilds.Count <= 1 && currentDay > 1)
+                {
+                    Debug.Log($"<color=yellow>[Competition] Savaş bitti! Diğer tüm loncalar çöktü.</color>");
+                    EndTournament();
+                }
+                break;
+
+            case SessionData.GameMode.AcimasizKis:
+                // Süresiz Mod: Hayatta kalan son kervanı bul
+                if (aliveAgentsCount <= 1 && currentDay > 5)
+                {
                     MerchantAgent lastAlive = allAgents.FirstOrDefault(a => a.gameObject.activeSelf);
                     EndTournament(lastAlive);
                 }
@@ -171,12 +205,12 @@ public class CompetitionManager : MonoBehaviour
                 }
                 else
                 {
-                    // 25 Puana (veya belirlediğin hedefe) ilk ulaşan kazanır!
+                    // 25 Puana ilk ulaşan kazanır!
                     MerchantAgent elci = allAgents.FirstOrDefault(a => a.gameObject.activeSelf && a.contractPoints >= 25);
                     if (elci != null)
                     {
                         Debug.Log($"<color=yellow>[Competition] {elci.gameObject.name} 25 Krallık Puanına ulaştı ve oyunu bitirdi!</color>");
-                        EndTournament(elci); // Hedefe ulaştığı için forcedWinner olarak yolla
+                        EndTournament(elci);
                     }
                 }
                 break;
@@ -218,7 +252,7 @@ public class CompetitionManager : MonoBehaviour
                     break;
 
                 case SessionData.GameMode.SarayinElcisi:
-                    CalculateDiplomatWinner(out kazananIsmi, out kazananDetayi); // YENİ EKLENDİ
+                    CalculateDiplomatWinner(out kazananIsmi, out kazananDetayi);
                     break;
 
                 case SessionData.GameMode.TekelSavaslari:
@@ -263,28 +297,40 @@ public class CompetitionManager : MonoBehaviour
 
     private void CalculateGuildWinner(out string guildName, out string guildStats)
     {
-        guildName = "LONCA BULUNAMADI";
-        guildStats = "Herkes battı...";
+        // 1. DİNAMİK LONCA SAYISI (Sabit 5 yerine menüden gelen sayıyı alıyoruz)
+        int numGuilds = SessionData.GuildCount > 0 ? SessionData.GuildCount : 5;
 
-        if (allAgents.Count == 0) return;
+        string[] guildNames = { "Yakut Loncası", "Safir Loncası", "Zümrüt Loncası", "Kehribar Loncası", "Obsidyen Loncası" };
 
-        // 5 Loncaya bölme (Index / (toplam/5))
-        float[] loncaKasalari = new float[5];
-        int agentsPerGuild = Mathf.Max(1, Mathf.CeilToInt((float)allAgents.Count / 5f));
+        int agentsPerGuild = Mathf.Max(1, Mathf.CeilToInt((float)allAgents.Count / (float)numGuilds));
 
+        float[] loncaKasalari = new float[numGuilds];
+        List<string>[] loncaUyeleri = new List<string>[numGuilds];
+
+        for (int i = 0; i < numGuilds; i++)
+        {
+            loncaUyeleri[i] = new List<string>();
+        }
+
+        // 2. Üyelerin paralarını lonca kasasında birleştir
         for (int i = 0; i < allAgents.Count; i++)
         {
             if (allAgents[i].gameObject.activeSelf && allAgents[i].currentMoney > 0)
             {
                 int guildIndex = i / agentsPerGuild;
-                if (guildIndex < 5) loncaKasalari[guildIndex] += allAgents[i].currentMoney;
+                if (guildIndex < numGuilds)
+                {
+                    loncaKasalari[guildIndex] += allAgents[i].currentMoney;
+                    loncaUyeleri[guildIndex].Add(allAgents[i].gameObject.name); // Hangi üyelerin yaşadığını kaydediyoruz
+                }
             }
         }
 
         float maxLoncaKasa = 0f;
         int bestGuildIndex = -1;
 
-        for (int i = 0; i < 5; i++)
+        // 3. En zengin loncayı bul
+        for (int i = 0; i < numGuilds; i++)
         {
             if (loncaKasalari[i] > maxLoncaKasa)
             {
@@ -293,10 +339,21 @@ public class CompetitionManager : MonoBehaviour
             }
         }
 
+        // 4. SONUÇ EKRANI
         if (bestGuildIndex != -1)
         {
-            guildName = $"LONCA {bestGuildIndex + 1}";
-            guildStats = $"Lonca Toplam Kasası:\n{maxLoncaKasa:F0} G";
+            // İsim listesi sınırını aşarsa otomatik "Lonca X" yazar (Güvenlik önlemi)
+            string finalGuildName = bestGuildIndex < guildNames.Length ? guildNames[bestGuildIndex] : $"Lonca {bestGuildIndex + 1}";
+
+            guildName = $"🏆 KAZANAN:\n{finalGuildName}";
+
+            // Kazanılan para ve o parayı toplayan kahraman üyelerin listesi
+            guildStats = $"<color=yellow>Lonca Kasası: {maxLoncaKasa:F0} G</color>\n\n<color=white>Hayatta Kalan Üyeler:</color>\n<color=cyan>" + string.Join("\n", loncaUyeleri[bestGuildIndex]) + "</color>";
+        }
+        else
+        {
+            guildName = "LONCA BULUNAMADI";
+            guildStats = "Tüm loncalar iflas etti...";
         }
     }
 

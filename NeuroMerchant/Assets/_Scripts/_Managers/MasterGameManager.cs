@@ -28,6 +28,10 @@ public class MasterGameManager : MonoBehaviour
     [Header("⚙️ Otomatik Bulma")]
     public bool autoFindManagers = true;
 
+    [Header("Lonca Ayarları (Guild Mode)")]
+    public Material[] guildMaterials; // Unity Inspector'dan 5 renk materyalini buraya sürükleyeceksin
+    public string[] guildNames = { "Yakut Loncası", "Safir Loncası", "Zümrüt Loncası", "Kehribar Loncası", "Obsidyen Loncası" };
+
     private void Awake()
     {
         // Singleton kontrolü
@@ -126,20 +130,64 @@ public class MasterGameManager : MonoBehaviour
         // Şehirlerin bağlı olduğu "Ana Odayı" (Root) bul (WorldGenerator objesinin ta kendisi)
         Transform mapRoot = worldGenerator.transform;
 
+        // ========================================================
+        // --- LONCA (GUILD) MODU HAZIRLIKLARI ---
+        // ========================================================
+        bool isGuildMode = (SessionData.CurrentMode == SessionData.GameMode.LoncalarIttifaki);
+
+        // Dinamik Lonca Sayısı (Menüden gelen SessionData.GuildCount)
+        int numGuilds = SessionData.GuildCount > 0 ? SessionData.GuildCount : 5;
+
+        // Sana bahsettiğim yuvarlama sistemi: (Örn: 7 Kervan / 5 Lonca -> Her loncaya 2 kişi)
+        int agentsPerGuild = Mathf.Max(1, Mathf.CeilToInt((float)count / numGuilds));
+
+        Transform[] guildParents = new Transform[numGuilds];
+
+        // Eğer Lonca modundaysak, önce boş Lonca klasörlerini (Parent) oluştur
+        if (isGuildMode)
+        {
+            for (int i = 0; i < numGuilds; i++)
+            {
+                string gName = (guildNames != null && guildNames.Length > i) ? guildNames[i] : $"Lonca_{i + 1}";
+                GameObject guildObj = new GameObject(gName);
+                guildObj.transform.SetParent(mapRoot); // Ana haritanın altına koy
+                guildParents[i] = guildObj.transform;
+            }
+        }
+        // ========================================================
+
         for (int i = 0; i < count; i++)
         {
             CityController randomCity = allCities[Random.Range(0, allCities.Length)];
             Vector3 spawnPos = randomCity.transform.position + new Vector3(Random.Range(-3f, 3f), 0, Random.Range(-3f, 3f));
 
-            // SİHİR BURADA: Ajanı WorldGenerator objesinin içine (mapRoot) doğuruyoruz!
-            GameObject newAgent = Instantiate(merchantAgentPrefab, spawnPos, Quaternion.identity, mapRoot);
+            // HANGİ KLASÖRÜN İÇİNE DOĞACAK?
+            Transform targetParent = mapRoot; // Standart modda direkt mapRoot içine
+            int myGuildIndex = 0;
 
+            if (isGuildMode)
+            {
+                myGuildIndex = Mathf.Clamp(i / agentsPerGuild, 0, numGuilds - 1);
+                targetParent = guildParents[myGuildIndex]; // Lonca modunda kendi lonca klasörünün içine!
+            }
+
+            // SİHİR BURADA: Ajanı hedef klasörün (targetParent) içine doğuruyoruz!
+            GameObject newAgent = Instantiate(merchantAgentPrefab, spawnPos, Quaternion.identity, targetParent);
             newAgent.name = $"Kervan_{i + 1}";
+
+            // --- YENİ: KERVANI BOYA (MATERYAL DEĞİŞTİR) ---
+            if (isGuildMode && guildMaterials != null && guildMaterials.Length > myGuildIndex)
+            {
+                MeshRenderer[] renderers = newAgent.GetComponentsInChildren<MeshRenderer>();
+                foreach (var renderer in renderers)
+                {
+                    renderer.material = guildMaterials[myGuildIndex];
+                }
+            }
         }
 
-        Debug.Log($"<color=cyan>[MasterGM] {count} kervan haritaya yerleştirildi.</color>");
+        Debug.Log($"<color=cyan>[MasterGM] Toplam {count} kervan haritaya yerleştirildi. (Lonca Modu: {isGuildMode})</color>");
     }
-
     private void FindAllManagers()
     {
         if (worldGenerator == null) 

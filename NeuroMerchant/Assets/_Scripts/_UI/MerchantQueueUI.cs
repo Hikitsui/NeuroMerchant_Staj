@@ -42,18 +42,22 @@ public class MerchantQueueUI : MonoBehaviour
     }
 
     [ContextMenu("Refresh Queue")]
+    [ContextMenu("Refresh Queue")]
     public void RefreshQueue()
     {
         if (CompetitionManager.Instance == null || CompetitionManager.Instance.allAgents == null) return;
 
         bool isDiplomatMode = SessionData.CurrentMode == SessionData.GameMode.SarayinElcisi;
         bool isMonopolyMode = SessionData.CurrentMode == SessionData.GameMode.TekelSavaslari;
+        bool isGuildMode = SessionData.CurrentMode == SessionData.GameMode.LoncalarIttifaki; // YENİ: Lonca kontrolü eklendi
 
         StringBuilder sb = new StringBuilder();
 
         if (isMonopolyMode)
         {
+            // ========================================================
             // TEKEL SAVAŞLARI İÇİN ÖZEL UI (Ürün Kralları Listesi)
+            // ========================================================
             string[] allItems = { "Wheat", "Wood", "Fish", "Cotton", "Meat", "Coal", "Leather", "Iron", "Clothes", "Tools", "Spices", "Jewelry" };
             string[] trItems = { "Buğday", "Odun", "Balık", "Pamuk", "Et", "Kömür", "Deri", "Demir", "Kıyafet", "Alet", "Baharat", "Mücevher" };
 
@@ -75,7 +79,6 @@ public class MerchantQueueUI : MonoBehaviour
 
                 if (bestAgent != null)
                 {
-                    // 1-) Buğday Kralı - Kervan_5 - 86 tane sattı
                     sb.AppendLine($"<color=white>{i + 1}-)</color> <color=orange>{trName} Kralı</color> - <color=yellow>{bestAgent.gameObject.name}</color> - <color=green>{maxSold} tane sattı</color>");
                 }
                 else
@@ -84,9 +87,69 @@ public class MerchantQueueUI : MonoBehaviour
                 }
             }
         }
+        else if (isGuildMode)
+        {
+            // ========================================================
+            // YENİ: LONCALAR İTTİFAKI CANLI EKRANI
+            // ========================================================
+            string[] guildNames = { "Yakut Loncası", "Safir Loncası", "Zümrüt Loncası", "Kehribar Loncası", "Obsidyen Loncası" };
+            string[] guildColors = { "#FF4444", "#4488FF", "#44FF44", "#FFBB44", "#CC44FF" };
+
+            // Dinamik Lonca Sayısı (Menüden gelen sayı)
+            int numGuilds = SessionData.GuildCount > 0 ? SessionData.GuildCount : 5;
+            int agentsPerGuild = Mathf.Max(1, Mathf.CeilToInt((float)CompetitionManager.Instance.allAgents.Count / (float)numGuilds));
+
+            var guildTotals = new Dictionary<int, float>();
+            var guildAgents = new Dictionary<int, List<string>>();
+
+            for (int i = 0; i < numGuilds; i++)
+            {
+                guildTotals[i] = 0f;
+                guildAgents[i] = new List<string>();
+            }
+
+            // Loncaların kasasını ve yaşayan üyelerini topla
+            for (int i = 0; i < CompetitionManager.Instance.allAgents.Count; i++)
+            {
+                var agent = CompetitionManager.Instance.allAgents[i];
+                if (agent.gameObject.activeSelf && agent.currentMoney > 0)
+                {
+                    int gIndex = i / agentsPerGuild;
+                    if (gIndex < numGuilds)
+                    {
+                        guildTotals[gIndex] += agent.currentMoney;
+                        guildAgents[gIndex].Add(agent.gameObject.name);
+                    }
+                }
+            }
+
+            // Kasası en dolu olan loncayı en başa al
+            var sortedGuilds = guildTotals.OrderByDescending(kv => kv.Value).ToList();
+
+            int rank = 1;
+            foreach (var kv in sortedGuilds)
+            {
+                int gIndex = kv.Key;
+                float money = kv.Value;
+
+                if (guildAgents[gIndex].Count > 0) // Sadece yaşayan loncaları göster
+                {
+                    // Eğer 5'ten fazla lonca ayarlandıysa renk sınırını aşmamak için modulo kullanılır
+                    string color = guildColors[gIndex % guildColors.Length];
+                    string name = gIndex < guildNames.Length ? guildNames[gIndex] : $"Lonca {gIndex + 1}";
+                    string members = string.Join(", ", guildAgents[gIndex]);
+
+                    sb.AppendLine($"<color=white>{rank}-)</color> <color={color}><b>{name}</b></color> - <color=yellow>{money:F0} G</color>");
+                    sb.AppendLine($"   <size=80%><color=grey>Üyeler: {members}</color></size>");
+                    rank++;
+                }
+            }
+        }
         else
         {
+            // ========================================================
             // DİĞER MODLAR İÇİN NORMAL AJAN SIRALAMASI
+            // ========================================================
             List<MerchantAgent> sortedAgents;
 
             if (isDiplomatMode)

@@ -14,9 +14,8 @@ public static class SessionData
     // --- Dinamik Ayarlar ---
     public static int AgentCount = 5;
     public static int MaxDays = 1800; // 5 Yıl
-    public static int GuildCount = 4; // Gelecek mod için
+    public static int GuildCount = 5; // 5 lonca sayisi
 
-    // YENİ EKLENEN: Modlara özel ek veriler
     public static int DifficultyLevel = 1; // 0: Kolay, 1: Orta, 2: Zor
-    public static float CustomMultiplier = 1.0f; // İlerideki modlar (Sarayın Sabrı vs) için hazır bulunsun
+
 }

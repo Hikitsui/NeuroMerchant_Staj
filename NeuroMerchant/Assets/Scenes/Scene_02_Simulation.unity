@@ -836,6 +836,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   trainingMode: 0
+  enableDebugLogs: 0
   scheduledContracts: []
   activeContracts: []
   trainingContractCount: 2
@@ -2237,6 +2238,18 @@ MonoBehaviour:
   competitionManager: {fileID: 655581373}
   timeManager: {fileID: 443342848}
   autoFindManagers: 1
+  guildMaterials:
+  - {fileID: 2100000, guid: 83daf10e16a10f245a34e2ba765d96a1, type: 2}
+  - {fileID: 2100000, guid: 629b3b2e427e6a747815030dab834372, type: 2}
+  - {fileID: 2100000, guid: 81836c2106d3ddf4ea47220973613419, type: 2}
+  - {fileID: 2100000, guid: e3d51fc6f41ea724aa235857394f9dfe, type: 2}
+  - {fileID: 2100000, guid: 4ac5158af3dadc04281b286c59d9c18b, type: 2}
+  guildNames:
+  - "Yakut Loncas\u0131"
+  - "Safir Loncas\u0131"
+  - "Elmas Loncas\u0131"
+  - "Kehribar Loncas\u0131"
+  - "Obsidyen Loncas\u0131"
 --- !u!1 &1616904580
 GameObject:
   m_ObjectHideFlags: 0
@@ -2777,6 +2790,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   trainingMode: 0
+  enableDebugLogs: 0
   scheduledEvents: []
   activeEvents: []
   trainingEventsCount: 2

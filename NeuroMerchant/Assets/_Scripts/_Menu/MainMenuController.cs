@@ -30,6 +30,11 @@ public class MainMenuController : MonoBehaviour
     public TMP_Dropdown difficultyDropdown;
     public TextMeshProUGUI difficultyDescText;
 
+    [Header("Lonca UI")]
+    public TMPro.TextMeshProUGUI loncaSayisiText;
+    public TMPro.TextMeshProUGUI kervanPerLoncaText;
+    public Slider guildSlider;
+
     private void Start()
     {
         // Başlangıçta sadece ilk ekran açık olsun
@@ -52,6 +57,13 @@ public class MainMenuController : MonoBehaviour
         {
             difficultyDropdown.onValueChanged.AddListener(delegate { OnDifficultyDropdownChanged(); });
             difficultyDropdown.value = SessionData.DifficultyLevel; // Varsayılanı ata
+        }
+
+        if (guildSlider != null)
+        {
+            // OnGuildSliderChanged içine float değer aldığı için bu şekilde bağlıyoruz
+            guildSlider.onValueChanged.AddListener(delegate { OnGuildSliderChanged(guildSlider.value); });
+            guildSlider.value = SessionData.GuildCount; // Varsayılanı ata
         }
     }
 
@@ -93,10 +105,46 @@ public class MainMenuController : MonoBehaviour
     // ==========================================
     // AYAR DEĞİŞİM FONKSİYONLARI (Slider / Dropdown)
     // ==========================================
+    public void OnGuildSliderChanged(float guildSliderValue)
+    {
+        int guildCount = (int)guildSliderValue;
+
+        // ÇÖZÜM BURADA: Sürekli değişen SessionData yerine, Kervan Slider'ının sabit ham değerini okuyoruz!
+        int baseAgentCount = agentSlider != null ? (int)agentSlider.value : 5;
+
+        // MATEMATİK: Ham sayıyı loncaya böl ve yukarı yuvarla
+        int agentsPerGuild = Mathf.CeilToInt((float)baseAgentCount / guildCount);
+
+        // Yeni toplam kervan sayısını hesapla
+        int finalTotalAgents = agentsPerGuild * guildCount;
+
+        // Session Data'ya kaydet (Sahnede bu yuvarlanmış sayı doğacak)
+        SessionData.GuildCount = guildCount;
+        SessionData.AgentCount = finalTotalAgents;
+
+        // Ekrana yazdır
+        if (loncaSayisiText != null) loncaSayisiText.text = $"Lonca Sayisi: {guildCount}";
+        if (kervanPerLoncaText != null) kervanPerLoncaText.text = $"Lonca basina kervan: {agentsPerGuild}";
+
+        // EXTRA DÜZELTME: Kervan UI textini de güncelleyelim ki oyuncu sayının eşitlendiğini (Örn: 7 yerine 10 olduğunu) anlasın
+        if (agentText != null) agentText.text = $"Kervan Sayısı: {finalTotalAgents} (Loncalara Eşitlendi)";
+    }
+
     public void OnAgentSliderChanged()
     {
-        SessionData.AgentCount = (int)agentSlider.value;
-        if (agentText != null) agentText.text = $"Kervan Sayısı: {SessionData.AgentCount}";
+        // Eğer Lonca modundaysak ve kervan slider'ı oynatılırsa, lonca hesabını otomatik tekrar yap!
+        if (SessionData.CurrentMode == SessionData.GameMode.LoncalarIttifaki)
+        {
+            // (Eğer menüdeyken henüz guildSlider referansı yoksa patlamaması için kontrol)
+            float currentGuildVal = SessionData.GuildCount > 0 ? SessionData.GuildCount : 5f;
+            OnGuildSliderChanged(currentGuildVal);
+        }
+        else
+        {
+            // Normal modlardaysak standart şekilde çalış
+            SessionData.AgentCount = (int)agentSlider.value;
+            if (agentText != null) agentText.text = $"Kervan Sayısı: {SessionData.AgentCount}";
+        }
     }
 
     public void OnDaysSliderChanged()
@@ -126,6 +174,7 @@ public class MainMenuController : MonoBehaviour
             else if (level == 2) difficultyDescText.text = "<color=red>İhale: ZOR</color>\nÜrünler: Lüks ve Zor Bulunanlar\nSüre: Kısa";
         }
     }
+
 
     // ==========================================
     // 3. EKRAN DETAYLARI VE BAŞLATMA (Resim 3)
@@ -180,11 +229,14 @@ public class MainMenuController : MonoBehaviour
                 break;
 
             case SessionData.GameMode.LoncalarIttifaki:
-                modeTitleText.text = "LONCALAR İTTİFAKI (WIP)";
-                modeDescriptionText.text = "Süre: Sınırsız.\nHedef: Diğer loncaları iflas ettir, haritaya hükmet.";
+                modeTitleText.text = "LONCALAR İTTİFAKI";
+                modeDescriptionText.text = "Süre: Seçilen güne kadar.\nHedef: Diğer loncaları iflas ettir veya süre bitiminde en zengin lonca ol.";
 
                 agentSettingGroup.SetActive(true);
-                guildSettingGroup.SetActive(true); // Sadece bu moda özel!
+                guildSettingGroup.SetActive(true);
+                daysSettingGroup.SetActive(true);
+
+                if (daysSlider != null) OnDaysSliderChanged();
                 break;
         }
 
