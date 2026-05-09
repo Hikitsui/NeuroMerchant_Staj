@@ -1,3 +1,4 @@
+using System.Linq;
 using UnityEngine;
 
 // ==============================================================
@@ -7,6 +8,10 @@ using UnityEngine;
 public class MasterGameManager : MonoBehaviour
 {
     public static MasterGameManager Instance;
+
+    [Header("Eğitim Döngüsü (Training Loop)")]
+    public int trainingDaysPerEpisode = 1000; // Eğitimde her mod kaç gün sürsün?
+    private int currentTrainingDay = 0;
 
     [Header("🎮 OYUN MODU")]
     [Tooltip("TRUE = Eğitim Modu (AI öğreniyor) | FALSE = Turnuva Modu (AI yarışıyor)")]
@@ -116,6 +121,15 @@ public class MasterGameManager : MonoBehaviour
             competitionManager.InitTournament();
             competitionManager.maxDays = SessionData.MaxDays;
         }
+
+        // ==========================================
+        // 4. ZİNCİR: EĞİTİM DÖNGÜSÜNÜ BAŞLAT
+        // ==========================================
+        if (timeManager != null)
+        {
+            timeManager.OnNewDay -= HandleTrainingLoop; // Güvenlik için önce kopar
+            timeManager.OnNewDay += HandleTrainingLoop; // Sonra bağla
+        }
     }
 
     private void SpawnAgents(int count)
@@ -220,7 +234,6 @@ public class MasterGameManager : MonoBehaviour
     private void SetupSelectedGameMode()
     {
         // Eğitimi kapat, turnuvayı aç
-        isTrainingMode = false;
 
         // 1. ÖNCE AJANLARI ÜRET (SPAWN)
         SpawnAgents(SessionData.AgentCount);
@@ -322,6 +335,50 @@ public class MasterGameManager : MonoBehaviour
         Debug.Log("<color=green>[MasterGM] ✓ Tüm sistemler senkronize edildi!</color>");
     }
 
+    private void ApplyModeSettings()
+    {
+        if (timeManager == null || eventManager == null || contractManager == null) return;
+
+        switch (SessionData.CurrentMode)
+        {
+            case SessionData.GameMode.AltinYolu:
+                timeManager.realSecondsPerGameDay = 2.0f; // Normal hız
+                eventManager.productionEventsCount = 4; // Az kriz
+                contractManager.productionContractCount = 3; // Az ihale
+                break;
+
+            case SessionData.GameMode.SarayinElcisi:
+                timeManager.realSecondsPerGameDay = 2.5f; // İhaleleri düşünmek için biraz daha yavaş zaman
+                eventManager.productionEventsCount = 2; // Sarayda kriz az olur
+                contractManager.productionContractCount = 10; // İhale PATLAMASI!
+                break;
+
+            case SessionData.GameMode.TekelSavaslari:
+                timeManager.realSecondsPerGameDay = 1.5f; // Ticaret hızlı dönmeli
+                eventManager.productionEventsCount = 8; // Pazar manipülasyonu için orta seviye kriz
+                contractManager.productionContractCount = 4;
+                break;
+
+            case SessionData.GameMode.LoncalarIttifaki:
+                timeManager.realSecondsPerGameDay = 2.0f;
+                eventManager.productionEventsCount = 6;
+                contractManager.productionContractCount = 5;
+                break;
+
+            case SessionData.GameMode.AcimasizKis:
+                timeManager.realSecondsPerGameDay = 0.8f; // Zaman çok hızlı akıyor, kaynaklar hızla tükeniyor!
+                eventManager.productionEventsCount = 15; // HER YERDE KRİZ VAR! (Kıtlık, Savaş vb.)
+                contractManager.productionContractCount = 2; // Kimsenin ihale düşünecek hali yok
+                break;
+        }
+
+        // Değişiklikleri sistemlere bildir
+        eventManager.InitManager(isTrainingMode);
+        contractManager.InitManager(isTrainingMode);
+
+        Debug.Log($"<color=orange>[MasterGM] Dünya atmosferi {SessionData.CurrentMode} moduna uyarlandı.</color>");
+    }
+
     /// <summary>
     /// Oyun modunu değiştir (Runtime'da)
     /// </summary>
@@ -364,5 +421,108 @@ public class MasterGameManager : MonoBehaviour
         Debug.Log($"TimeManager: {(timeManager != null ? "✓" : "✗")}");
         Debug.Log($"BrokerManager: {(brokerManager != null ? "✓" : "✗")}");
         Debug.Log("═════════════════════════════════");
+    }
+
+    // =========================================================
+    // EĞİTİM DÖNGÜSÜ (TRAINING LOOP) YÖNETİMİ
+    // =========================================================
+    private void HandleTrainingLoop()
+    {
+        if (!isTrainingMode) return; // Sadece eğitimdeysek çalışır
+
+        currentTrainingDay++;
+
+        // Belirlenen gün dolduğunda evreni sıfırla ve yeni moda geç
+        if (currentTrainingDay >= trainingDaysPerEpisode)
+        {
+            AdvanceToNextMode();
+        }
+    }
+
+    private void AdvanceToNextMode()
+    {
+        //------------ acimasiz kis finish condition check -----------------
+        if (SessionData.CurrentMode == SessionData.GameMode.AcimasizKis)
+        {
+            MerchantAgent[] aliveAgents = UnityEngine.Object.FindObjectsOfType<MerchantAgent>();
+
+            // Sadece parası 0'dan büyük olan (iflas etmeyen) ajanları paralarına göre sırala
+            var sortedAgents = aliveAgents
+                .Where(a => a.currentMoney > 0)
+                .OrderByDescending(a => a.currentMoney)
+                .ToList();
+
+            // Sıralamaya göre ödüller (1. = 8f, 2. = 6f, 3. = 3.5f, Diğerleri = 1f)
+            for (int i = 0; i < sortedAgents.Count; i++)
+            {
+                if (i == 0) sortedAgents[i].AddReward(8.0f);
+                else if (i == 1) sortedAgents[i].AddReward(6.0f);
+                else if (i == 2) sortedAgents[i].AddReward(3.5f);
+                else sortedAgents[i].AddReward(1.0f); // İflas etmediği için küçük bir teselli
+            }
+        }
+        //-----------------------------------------------------------------
+
+        currentTrainingDay = 0;
+
+        // Modu bir sonrakine kaydır (Örn: 0 -> 1 -> 2 -> 3 -> 4 -> Başa Dön 0)
+        int nextModeIndex = (int)SessionData.CurrentMode + 1;
+        int totalModes = System.Enum.GetValues(typeof(SessionData.GameMode)).Length;
+
+        if (nextModeIndex >= totalModes)
+        {
+            nextModeIndex = 0;
+        }
+
+        SessionData.CurrentMode = (SessionData.GameMode)nextModeIndex;
+
+        Debug.Log($"<color=magenta>🔄 [EĞİTİM] EVREN SIFIRLANDI! Yeni Kural Seti: {SessionData.CurrentMode}</color>");
+
+        ApplyModeSettings();
+        ResetEnvironmentForTraining();
+    }
+
+    private void ResetEnvironmentForTraining()
+    {
+        // 1. Sistemleri yeni moda göre ayarla (CompetitionManager kapalı kalmaya devam eder vb.)
+        SynchronizeAllSystems();
+
+        // 2. Görevleri ve Krizleri Sıfırla
+        if (eventManager != null) eventManager.InitManager(true);
+        if (contractManager != null) contractManager.InitManager(true);
+
+        // 3. Şehirlerin ekonomisini (pazar fiyatlarını, stokları) ilk güne döndür
+        CityController[] cities = FindObjectsOfType<CityController>();
+        foreach (var city in cities)
+        {
+            // Şehrin o anki eşyalarını (ItemData) yeni bir liste olarak toparlıyoruz:
+            System.Collections.Generic.List<ItemData> currentItems = new System.Collections.Generic.List<ItemData>();
+            if (city.marketItems != null)
+            {
+                foreach (var marketItem in city.marketItems)
+                {
+                    currentItems.Add(marketItem.itemData);
+                }
+            }
+
+            // Şehri kendi eski verileriyle baştan kuruyoruz (Sıfırlıyoruz):
+            city.InitializeCity(city.cityName, city.isProducer, city.population, currentItems);
+        }
+
+        // 4. Ajanların (Kervanların) hafızasını sil ve canlandır!
+        MerchantAgent[] agents = FindObjectsOfType<MerchantAgent>(true);
+
+        foreach (var agent in agents)
+        {
+            agent.gameObject.SetActive(true);
+
+            agent.currentMoney = 200f;
+            agent.contractPoints = 0;
+
+            if (agent.soldItemsTracker != null)
+                agent.soldItemsTracker.Clear();
+
+            agent.EndEpisode();
+        }
     }
 }

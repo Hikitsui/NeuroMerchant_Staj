@@ -181,6 +181,8 @@ MonoBehaviour:
   enableDebugLogs: 0
   currentMoney: 200
   startingMoney: 200
+  contractPoints: 0
+  completedContractsCount: 0
   movementPenalty: -0.00005
   invalidActionPenalty: -0.001
   invalidTargetPenalty: -0.05
@@ -221,7 +223,7 @@ MonoBehaviour:
     hasUpgradedBrainParametersWithActionSpec: 1
   m_Model: {fileID: 5022602860645237092, guid: 4e76fc5e25515ef479c1015cebf9836e, type: 3}
   m_InferenceDevice: 1
-  m_BehaviorType: 2
+  m_BehaviorType: 0
   m_BehaviorName: MerchantAgent
   TeamId: 0
   m_UseChildSensors: 1

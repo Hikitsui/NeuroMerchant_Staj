@@ -58,53 +58,31 @@ public class WorldGenerator : MonoBehaviour
         Debug.Log($"<color=cyan>WORLD GENERATOR:</color> Initializing {modeLog} with {popLog}...");
 
         // --- ADIM 0: MOD AYARLARI ---
-        if (trainingMode)
-        {
-            currentMapSize = trainingMapSize;
-            gridCols = 2; // 2x2 = 4 Sehir
-            gridRows = 2;
-        }
-        else
-        {
-            currentMapSize = fullMapSize;
-            gridCols = 5; // 5x4 = 20 Sehir
-            gridRows = 4;
-        }
+        currentMapSize = fullMapSize; // 180f
+        gridCols = 5; // 5x4 = 20 Sehir
+        gridRows = 4;
 
-        // --- ADIM 1: URETIM LISTESINI HAZIRLA ---
+        // --- ADIM 1: URETIM LISTESINI HAZIRLA (TÜM TIER'LAR AÇIK) ---
         Queue<ItemData> villageProductionQueue = new Queue<ItemData>();
         List<ItemData> allItemsForCities = new List<ItemData>();
 
-        if (trainingMode)
-        {
-            villageProductionQueue.Enqueue(itemWheat);
-            villageProductionQueue.Enqueue(itemWood);
-            villageProductionQueue.Enqueue(itemIron);
-            villageProductionQueue.Enqueue(itemCotton);
-            villageProductionQueue.Enqueue(itemCoal);
+        // Tier 1
+        for (int i = 0; i < 4; i++) villageProductionQueue.Enqueue(itemWheat);
+        for (int i = 0; i < 3; i++) villageProductionQueue.Enqueue(itemWood);
+        for (int i = 0; i < 3; i++) villageProductionQueue.Enqueue(itemFish);
+        for (int i = 0; i < 3; i++) villageProductionQueue.Enqueue(itemCotton);
+        // Tier 2
+        for (int i = 0; i < 2; i++) villageProductionQueue.Enqueue(itemMeat);
+        for (int i = 0; i < 2; i++) villageProductionQueue.Enqueue(itemCoal);
+        for (int i = 0; i < 2; i++) villageProductionQueue.Enqueue(itemLeather);
+        for (int i = 0; i < 2; i++) villageProductionQueue.Enqueue(itemIron);
+        // Tier 3
+        villageProductionQueue.Enqueue(itemClothes);
+        villageProductionQueue.Enqueue(itemTools);
+        villageProductionQueue.Enqueue(itemSpices);
+        villageProductionQueue.Enqueue(itemJewelry);
 
-            allItemsForCities = new List<ItemData> { itemWheat, itemWood, itemIron, itemCotton, itemCoal };
-        }
-        else
-        {
-            // Tier 1
-            for (int i = 0; i < 4; i++) villageProductionQueue.Enqueue(itemWheat);
-            for (int i = 0; i < 3; i++) villageProductionQueue.Enqueue(itemWood);
-            for (int i = 0; i < 3; i++) villageProductionQueue.Enqueue(itemFish);
-            for (int i = 0; i < 3; i++) villageProductionQueue.Enqueue(itemCotton);
-            // Tier 2
-            for (int i = 0; i < 2; i++) villageProductionQueue.Enqueue(itemMeat);
-            for (int i = 0; i < 2; i++) villageProductionQueue.Enqueue(itemCoal);
-            for (int i = 0; i < 2; i++) villageProductionQueue.Enqueue(itemLeather);
-            for (int i = 0; i < 2; i++) villageProductionQueue.Enqueue(itemIron);
-            // Tier 3
-            villageProductionQueue.Enqueue(itemClothes);
-            villageProductionQueue.Enqueue(itemTools);
-            villageProductionQueue.Enqueue(itemSpices);
-            villageProductionQueue.Enqueue(itemJewelry);
-
-            allItemsForCities = new List<ItemData> { itemWheat, itemWood, itemFish, itemCotton, itemMeat, itemCoal, itemLeather, itemIron, itemClothes, itemTools, itemSpices, itemJewelry };
-        }
+        allItemsForCities = new List<ItemData> { itemWheat, itemWood, itemFish, itemCotton, itemMeat, itemCoal, itemLeather, itemIron, itemClothes, itemTools, itemSpices, itemJewelry };
 
         // --- ADIM 2: GRID SISTEMI ILE SEHIRLERI OLUSTUR ---
 
@@ -138,12 +116,12 @@ public class WorldGenerator : MonoBehaviour
                     GameObject cityObj = Instantiate(cityPrefab, cityPos, Quaternion.identity, this.transform);
 
                     string name = $"City_{cityCount + 1}";
-                    if (!trainingMode && cityCount < 5) name = $"Grand_City_{cityCount + 1}";
+                    if (cityCount < 5) name = $"Grand_City_{cityCount + 1}";
 
                     cityObj.name = name;
 
                     CityController cc = cityObj.GetComponent<CityController>();
-                    int startPop = (!trainingMode && cityCount < 5) ? Random.Range(300, 800) : Random.Range(100, 300);
+                    int startPop = (cityCount < 5) ? Random.Range(300, 800) : Random.Range(100, 300);
 
                     cc.InitializeCity(name, false, startPop, allItemsForCities);
 
@@ -164,15 +142,7 @@ public class WorldGenerator : MonoBehaviour
             if (spawnedCities[i] == null) continue;
 
             int villagesToSpawn = 1;
-
-            if (trainingMode)
-            {
-                if (i == 0) villagesToSpawn = 2;
-            }
-            else
-            {
-                if (spawnedCities[i].name.Contains("Grand")) villagesToSpawn = 2;
-            }
+            if (spawnedCities[i].name.Contains("Grand")) villagesToSpawn = 2;
 
             for (int k = 0; k < villagesToSpawn; k++)
             {

@@ -12,7 +12,7 @@ public static class SessionData
     public static GameMode CurrentMode = GameMode.AltinYolu;
 
     // --- Dinamik Ayarlar ---
-    public static int AgentCount = 5;
+    public static int AgentCount = 20;
     public static int MaxDays = 1800; // 5 Yıl
     public static int GuildCount = 5; // 5 lonca sayisi
 

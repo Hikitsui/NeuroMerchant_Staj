@@ -104,7 +104,7 @@ public class ContractManager : MonoBehaviour
         scheduledContracts.Clear();
         if (allCities.Length == 0 || allItems.Length == 0) return;
 
-        int contractCount = trainingMode ? trainingContractCount : productionContractCount;
+        int contractCount = productionContractCount;
         bool isDiplomatMode = (!trainingMode && SessionData.CurrentMode == SessionData.GameMode.SarayinElcisi);
 
         // 1. İHALE FREKANSI: Elçi modunda zorluk fark etmeksizin her ay 10 ile 20 arası ihale çıkar

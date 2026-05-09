@@ -749,15 +749,84 @@ public class MerchantAgent : Agent
                 }
 
                 // Kar/Zarara göre ödül/ceza
-                if (profit > 0)
+                if (profit < 0)
                 {
-                    float reward = Mathf.Clamp(profit * REWARD_FACTOR, 0f, 1.5f);
-                    AddReward(reward);
+                    float basePenalty = Mathf.Clamp(profit * REWARD_FACTOR * 2.0f, -3.0f, 0f);
+                    AddReward(basePenalty);
                 }
-                else
+
+                switch (SessionData.CurrentMode)
                 {
-                    float penalty = Mathf.Clamp(profit * REWARD_FACTOR, -1.5f, 0f);
-                    AddReward(penalty);
+                    case SessionData.GameMode.AltinYolu:
+                        if (profit > 0)
+                        {
+                            float reward = Mathf.Clamp(profit * REWARD_FACTOR, 0f, 1.5f);
+                            AddReward(reward);
+                        }
+                        else
+                        {
+                            float penalty = Mathf.Clamp(profit * REWARD_FACTOR * 1.5f, -2.0f, 0f);
+                            AddReward(penalty);
+                        }
+                        break;
+
+                    case SessionData.GameMode.SarayinElcisi:
+                        if (profit > 0 && !ihaleTamamlandiMi)
+                        {
+                            AddReward(Mathf.Clamp(profit * REWARD_FACTOR * 0.1f, 0f, 0.2f));
+                        }
+                        else if (profit < 0)
+                        {
+                            AddReward(Mathf.Clamp(profit * REWARD_FACTOR * 0.5f, -0.5f, 0f));
+                        }
+
+                        if (ihaleTamamlandiMi)
+                        {
+                            float contractReward = Mathf.Clamp(ihaleOdulu * REWARD_FACTOR * 0.5f, 2.0f, 8.0f);
+                            AddReward(contractReward);
+                            if (enableDebugLogs) Debug.Log($"<color=yellow>[ÖDÜL] İhale tamamlandı! +{contractReward:F1} Puan</color>");
+                        }
+                        break;
+
+                    case SessionData.GameMode.TekelSavaslari:
+                        if (profit > 0)
+                        {
+                            float baseReward = Mathf.Clamp(profit * REWARD_FACTOR, 0f, 1.5f);
+                            int totalSoldOfThisItem = soldItemsTracker.ContainsKey(carriedItemData.itemName) ? soldItemsTracker[carriedItemData.itemName] : 1;
+
+                            // Her 10 üründe çarpan 0.1 artar. Örn: 30 ürün sattıysa multiplier = 1.3
+                            float tekelMultiplier = 1.0f + (totalSoldOfThisItem / 10) * 0.1f;
+                            tekelMultiplier = Mathf.Clamp(tekelMultiplier, 1.0f, 3.0f);
+
+                            AddReward(baseReward * tekelMultiplier);
+                        }
+                        else
+                        {
+                            float penalty = Mathf.Clamp(profit * REWARD_FACTOR * 2.0f, -3.0f, 0f);
+                            AddReward(penalty);
+                        }
+                        break;
+
+                    case SessionData.GameMode.LoncalarIttifaki:
+                        if (profit > 0)
+                        {
+                            float groupReward = Mathf.Clamp(profit * REWARD_FACTOR, 0f, 1.5f);
+                            MerchantAgent[] allAllies = FindObjectsOfType<MerchantAgent>();
+                            foreach (var ally in allAllies) { ally.AddReward(groupReward); }
+                        }
+                        else
+                        {
+                            // Birinin hatası tüm takımı yakar! (Takım baskısı)
+                            float groupPenalty = Mathf.Clamp(profit * REWARD_FACTOR, -1.5f, 0f);
+                            MerchantAgent[] allAllies = FindObjectsOfType<MerchantAgent>();
+                            foreach (var ally in allAllies) { ally.AddReward(groupPenalty); }
+                        }
+                        break;
+
+                    case SessionData.GameMode.AcimasizKis:
+                        if (profit > 0) AddReward(0.1f);
+                        else AddReward(-0.2f);
+                        break;
                 }
 
                 if (carriedAmount <= 0)
@@ -1157,7 +1226,13 @@ public class MerchantAgent : Agent
         return 0f;
     }
 
-    void OnNewDay() { } // Zaman cezasi yok
+    void OnNewDay()
+    {
+        if (SessionData.CurrentMode == SessionData.GameMode.AcimasizKis)
+        {
+            AddReward(-0.01f);
+        }
+    }
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {

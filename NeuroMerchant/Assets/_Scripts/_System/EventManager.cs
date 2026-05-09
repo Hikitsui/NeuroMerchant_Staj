@@ -90,7 +90,7 @@ public class EventManager : MonoBehaviour
         scheduledEvents.Clear();
 
         // 1. MODA VE ZORLUĞA GÖRE EVENT SAYISINI BELİRLE
-        int eventCount = trainingEventsCount;
+        int eventCount = productionEventsCount;
         bool isWinterMode = (SessionData.CurrentMode == SessionData.GameMode.AcimasizKis);
 
         if (!trainingMode)
