@@ -9,12 +9,13 @@ using System.Linq;
 // ==============================================================
 // NEUROMERCHANT - ANA AJAN
 // ==============================================================
-// Gozlem Mimarisi - 281 GIRIS (SABIT):
-//   [22]  Ajan Oz Verisi
-//   [225] Yerleske Hafizasi (45 x 5)
-//   [9]   Dis Sinyaller (Ders 7'den aktif)
-//   [25]  Broker Gozlemleri (5 x 5)
-//   TOPLAM: 281
+// Gozlem Mimarisi - 1271 GIRIS (GUNCEL):
+//   [22]   Ajan Oz Verisi (Para, Kargo, Konum, Tier, 12 Urun, 3 Padding)
+//   [1215] Yerleske Hafizasi (45 Sehir x 27 Veri) 
+//          -> (1 Mesafe + 12 Fiyat + 12 Stok + 1 Bilgi Yasi + 1 Uretici Mi)
+//   [9]    Dis Sinyaller (Event [3] + Kontrat [3] + Komsu Ajan Padding [3])
+//   [25]   Broker Gozlemleri (1 Aktif Broker [5] + 4 Eski Broker Padding [20])
+//   TOPLAM: 1271
 //
 // Aksiyon: 4 Branch (50 / 5 / 5 / 5)
 //
@@ -49,6 +50,11 @@ public class MerchantAgent : Agent
     public float startingMoney = 2000f;
     public int contractPoints = 0;
     public int completedContractsCount = 0;
+
+    [Header("Haydut ve Koruma")]
+    public float robberyImmunityDuration = 10f; // Soyulduktan sonra 10 saniye kalkan
+    private float robberyImmunityTimer = 0f;
+    public bool IsImmuneToRobbery() => robberyImmunityTimer > 0f;
 
     [Header("Dynamic Training Controls")]
     public float movementPenalty = -0.00005f;
@@ -164,6 +170,7 @@ public class MerchantAgent : Agent
     // HAFIZA
     // ----------------------------------------------------------
     private Dictionary<int, SettlementMemory> memoryMap = new Dictionary<int, SettlementMemory>();
+    private MerchantAgent[] cachedAllies;
 
     // TEKEL SAVAŞLARI: Ajanın sattığı malların çetelesi
     public Dictionary<string, int> soldItemsTracker = new Dictionary<string, int>();
@@ -187,6 +194,8 @@ public class MerchantAgent : Agent
     public override void Initialize()
     {
         navAgent = GetComponent<NavMeshAgent>();
+
+        cachedAllies = FindObjectsOfType<MerchantAgent>(true);
 
         if (curriculumManager == null)
         {
@@ -227,6 +236,15 @@ public class MerchantAgent : Agent
         }
     }
 
+    void Update()
+    {
+        // Dokunulmazlık sayacını zamanla azalt
+        if (robberyImmunityTimer > 0f)
+        {
+            robberyImmunityTimer -= Time.deltaTime;
+        }
+    }
+
     // ==========================================================
     // EPISODE BASLANGICI + STEP BAZLI RAPORLAMA
     // ==========================================================
@@ -255,6 +273,8 @@ public class MerchantAgent : Agent
         }
         else
         {
+            maxStepsPerEpisode = 25000;
+            /*
             switch (currentLesson)
             {
                 case 1: maxStepsPerEpisode = 12000; break;
@@ -263,9 +283,10 @@ public class MerchantAgent : Agent
                 case 4: maxStepsPerEpisode = 135000; break;
                 case 5: maxStepsPerEpisode = 14000; break;
                 case 6: maxStepsPerEpisode = 14500; break;
-                case 7: maxStepsPerEpisode = 15000; break;
+                case 7: maxStepsPerEpisode = 180000; break;
                 default: maxStepsPerEpisode = 14000; break;
             }
+            */
         }
 
         // 2. SIFIRLAMALAR
@@ -287,27 +308,52 @@ public class MerchantAgent : Agent
 
         if (navAgent != null && navAgent.isOnNavMesh) navAgent.ResetPath();
 
-        // 3. IŞINLANMA (Turnuvanın başında 1 kere çalışıp kervanları köylere koyar)
+        // 3. IŞINLANMA (Haritaya dağınık ve rastgele yerleştirme)
         int active = ActiveSettlementCount();
-        var startCities = allSettlements.Take(active).Where(s => !s.isProducer).ToList();
+
+        // ESKİ KOD: Sadece şehirlere doğuruyordu (.Where(s => !s.isProducer) kısmı silindi)
+        var startCities = allSettlements.Take(active).ToList();
 
         if (startCities.Count > 0)
-            transform.position = startCities[Random.Range(0, startCities.Count)].transform.position;
+        {
+            // Ajanların tam üst üste binmemesi için X ve Z ekseninde -10 ile +10 arası rastgele dağıtıyoruz
+            Vector3 randomOffset = new Vector3(Random.Range(-10f, 10f), 0, Random.Range(-10f, 10f));
+            transform.position = startCities[Random.Range(0, startCities.Count)].transform.position + randomOffset;
+        }
         else if (allSettlements.Count > 0)
+        {
             transform.position = allSettlements[0].transform.position;
-
-        bool fullReset = (CompletedEpisodes % 10 == 0);
-        foreach (var s in allSettlements) s.ResetCity(fullReset);
-
-        brokerActionTakenThisVisit = false;
-        ApplySaturationSetting();
+        }
     }
 
     // ==========================================================
     // GOZLEMLER - 281 GIRIS
     // ==========================================================
+    // ==========================================================
+    // GOZLEMLER - 1271 GIRIS (AKILLI RADAR UYUMLU)
+    // ==========================================================
     public override void CollectObservations(VectorSensor sensor)
     {
+        // ========================================================
+        // 1. ORTAK AKILLI RADAR: Hedef kontratı EN BAŞTA 1 KERE belirliyoruz!
+        // ========================================================
+        ContractManager.ActiveContract targetContract = null;
+
+        if (currentLesson >= LESSON_EXT_SIGNALS && ContractManager.Instance != null && ContractManager.Instance.activeContracts.Count > 0)
+        {
+            // Önce kervandaki mala uygun kontratı ara
+            if (carriedAmount > 0 && carriedItemData != null)
+            {
+                targetContract = ContractManager.Instance.activeContracts.Find(c => c.requiredItem == carriedItemData);
+            }
+
+            // Bulamazsa (veya kervan boşsa) listedeki ilk göreve odaklan
+            if (targetContract == null)
+            {
+                targetContract = ContractManager.Instance.activeContracts[0];
+            }
+        }
+
         // ---- BLOK A: AJAN OZ VERISI (22) ----
         sensor.AddObservation(currentMoney / 10000f);
         sensor.AddObservation(carriedAmount / (float)maxCapacity);
@@ -317,7 +363,6 @@ public class MerchantAgent : Agent
         sensor.AddObservation(boughtLocalInfo ? 1f : 0f);
         sensor.AddObservation(boughtGlobalInfo ? 1f : 0f);
 
-        // 12 urun slotu (aktif olmayanlar 0 olarak gonderilir)
         int activeProducts = LessonProductCount[Mathf.Clamp(currentLesson, 0, 7)];
         var activeItems = GetActiveItems();
         for (int i = 0; i < 12; i++)
@@ -343,22 +388,16 @@ public class MerchantAgent : Agent
 
                 sensor.AddObservation(dist / 500f);
 
-                // 12 ürünün fiyatını ve 12 ürünün stoğunu tek tek sensöre veriyoruz
                 for (int p = 0; p < 12; p++) sensor.AddObservation(mem.knownPrices[p] / 500f);
                 for (int k = 0; k < 12; k++) sensor.AddObservation(mem.knownStocks[k]);
 
-                // === V12 LSTM ZAMAN ALGISI OPTİMİZASYONU ===
-                // Ajanın beynine "zamanın" ne kadar hızlı aktığını öğretiyoruz.
-                // Sınırı 30 gün (1 Ay) yaptık: 0 = Yepyeni bilgi, 1 = Tamamen Bayat (veya hiç gidilmemiş)
                 float normalizedAge = 0f;
-                if (currentLesson >= 4) // Ders 4 (Sis Perdesi) ve sonrası
+                if (currentLesson >= 4)
                 {
                     float rawAge = mem.GetInformationAge();
                     normalizedAge = Mathf.Clamp01(rawAge / 30f);
                 }
                 sensor.AddObservation(normalizedAge);
-                // ===========================================
-
                 sensor.AddObservation(s.isProducer ? 1f : 0f);
             }
             else
@@ -380,10 +419,8 @@ public class MerchantAgent : Agent
             {
                 var evt = events[0];
                 sensor.AddObservation(GetEventTypeNormalized(evt.name));
-                sensor.AddObservation(Mathf.Clamp01(
-                    evt.consumptMod > 1f ? evt.consumptMod / 3f : evt.productMod / 2f));
-                sensor.AddObservation(Mathf.Clamp01(
-                    1f - (float)evt.daysElapsed / Mathf.Max(evt.durationDays, 1)));
+                sensor.AddObservation(Mathf.Clamp01(evt.consumptMod > 1f ? evt.consumptMod / 3f : evt.productMod / 2f));
+                sensor.AddObservation(Mathf.Clamp01(1f - (float)evt.daysElapsed / Mathf.Max(evt.durationDays, 1)));
             }
             else
             {
@@ -392,13 +429,12 @@ public class MerchantAgent : Agent
                 sensor.AddObservation(0f);
             }
 
-            // Kontrat (3)
-            if (ContractManager.Instance != null && ContractManager.Instance.activeContracts.Count > 0)
+            // Kontrat (3) -> YUKARIDAKI ORTAK targetContract KULLANILIYOR
+            if (targetContract != null)
             {
-                var c = ContractManager.Instance.activeContracts[0];
                 sensor.AddObservation(1f);
-                sensor.AddObservation(allSettlements.IndexOf(c.targetCity) / (float)MAX_SETTLEMENTS);
-                sensor.AddObservation(c.daysLeft / 30f);
+                sensor.AddObservation(allSettlements.IndexOf(targetContract.targetCity) / (float)MAX_SETTLEMENTS);
+                sensor.AddObservation(targetContract.daysLeft / 150f); // 150 GÜNLÜK YENİ SINIR NORMALIZE EDİLDİ
             }
             else
             {
@@ -413,29 +449,59 @@ public class MerchantAgent : Agent
             for (int i = 0; i < 6; i++) sensor.AddObservation(0f);
         }
 
-        // Komsu ajan (3) - ileride cok-ajanli sistem icin rezerve
+        // Komsu ajan (3)
         sensor.AddObservation(0f);
         sensor.AddObservation(0f);
         sensor.AddObservation(0f);
 
-        // ---- BLOK D: BROKER GOZLEMLERI (5 x 5 = 25) ----
-        // RegionalBroker kaldirildi, 25 slot korunuyor
+        // ---- BLOK D: BROKER GOZLEMLERI (25) ----
         if (localBrokerManager != null)
         {
             sensor.AddObservation(1f);                                          // broker mevcut
             sensor.AddObservation(localBrokerManager.tier1Cost / 50000f);       // tier1 maliyet
             sensor.AddObservation(localBrokerManager.tier2Cost / 50000f);       // tier2 maliyet
-            sensor.AddObservation(!boughtLocalInfo ? 1f : 0f);                 // local info alinabilir
+            sensor.AddObservation(!boughtLocalInfo ? 1f : 0f);                  // local info alinabilir
             sensor.AddObservation(!boughtGlobalInfo ? 1f : 0f);                 // global info alinabilir
         }
         else
         {
             for (int i = 0; i < 5; i++) sensor.AddObservation(0f);
         }
-        // Kalan 20 slot: padding (eski 4 broker icin rezerve)
-        for (int i = 0; i < 20; i++) sensor.AddObservation(0f);
 
-        // TOPLAM: 22 + 225 + 9 + 25 = 281
+        // Oyun Modu (5)
+        for (int i = 0; i < 5; i++)
+        {
+            sensor.AddObservation((int)SessionData.CurrentMode == i ? 1.0f : 0.0f);
+        }
+
+        // ========================================================
+        // KALAN 15 SLOT (YENİ KONTRAT DETAYLARI)
+        // ========================================================
+        if (targetContract != null)
+        {
+            // 12 Slot -> Ürün ID (Binary)
+            for (int i = 0; i < 12; i++)
+            {
+                if (i < activeItems.Count && activeItems[i] == targetContract.requiredItem)
+                    sensor.AddObservation(1.0f);
+                else
+                    sensor.AddObservation(0.0f);
+            }
+
+            // 1 Slot -> Miktar
+            float normalizedAmount = Mathf.Clamp01((float)targetContract.requiredAmount / 100f);
+            sensor.AddObservation(normalizedAmount);
+
+            // 2 Slot -> Boşluk
+            sensor.AddObservation(0.0f);
+            sensor.AddObservation(0.0f);
+        }
+        else
+        {
+            for (int i = 0; i < 15; i++) sensor.AddObservation(0f);
+        }
+
+        // TOPLAM: 22 + 1215 + 9 + 25 = 1271
     }
 
     // ==========================================================
@@ -516,7 +582,7 @@ public class MerchantAgent : Agent
             else
             {
                 // Yolda geen her adim iin ok kk zaman cezasi
-                AddReward(-0.00005f);
+                AddReward(-0.00001f);
             }
             return;
         }
@@ -686,6 +752,21 @@ public class MerchantAgent : Agent
                 float ratio = AmountRatios[pendingSellAmountIndex];
                 int amountSell = Mathf.Max(1, Mathf.RoundToInt(carriedAmount * ratio));
 
+                if (SessionData.CurrentMode == SessionData.GameMode.SarayinElcisi && ContractManager.Instance != null)
+                {
+                    var ihale = ContractManager.Instance.activeContracts.Find(c => c.targetCity == currentDestination && c.requiredItem == carriedItemData);
+
+                    if (ihale != null)
+                    {
+                        // Ajan ihaleyi tamamlayacak kadar malı getirdiyse ama beyni "az satayım" diyorsa, onu eziyoruz!
+                        if (carriedAmount >= ihale.requiredAmount && amountSell < ihale.requiredAmount)
+                        {
+                            amountSell = carriedAmount; // Tüm kargoyu ihaleye bas!
+                            if (enableDebugLogs) Debug.Log($"<color=magenta>[SİSTEM MÜDAHALESİ]</color> {gameObject.name} kısmî satış yapacaktı, ihaleyi alması için miktar {amountSell} olarak zorlandı!");
+                        }
+                    }
+                }
+
                 if (!soldItemsTracker.ContainsKey(carriedItemData.itemName))
                     soldItemsTracker[carriedItemData.itemName] = 0;
 
@@ -773,7 +854,8 @@ public class MerchantAgent : Agent
                     case SessionData.GameMode.SarayinElcisi:
                         if (profit > 0 && !ihaleTamamlandiMi)
                         {
-                            AddReward(Mathf.Clamp(profit * REWARD_FACTOR * 0.1f, 0f, 0.2f));
+                            // Sadece al-sat yaparak kâr ederse alacağı ödülü artırdık (0.5'e kadar)
+                            AddReward(Mathf.Clamp(profit * REWARD_FACTOR * 0.2f, 0f, 0.5f));
                         }
                         else if (profit < 0)
                         {
@@ -782,7 +864,9 @@ public class MerchantAgent : Agent
 
                         if (ihaleTamamlandiMi)
                         {
-                            float contractReward = Mathf.Clamp(ihaleOdulu * REWARD_FACTOR * 0.5f, 2.0f, 8.0f);
+                            // ESKİ: 2.0f ile 8.0f arasıydı.
+                            // YENİ: İhale ödülü artık çok daha çekici (5.0f ile 20.0f arası!)
+                            float contractReward = Mathf.Clamp(ihaleOdulu * REWARD_FACTOR * 1.5f, 5.0f, 20.0f);
                             AddReward(contractReward);
                             if (enableDebugLogs) Debug.Log($"<color=yellow>[ÖDÜL] İhale tamamlandı! +{contractReward:F1} Puan</color>");
                         }
@@ -808,18 +892,22 @@ public class MerchantAgent : Agent
                         break;
 
                     case SessionData.GameMode.LoncalarIttifaki:
+                        // TAKIM MODU: Kârı (veya Zararı) tüm sahaya (loncaya) dağıt!
                         if (profit > 0)
                         {
                             float groupReward = Mathf.Clamp(profit * REWARD_FACTOR, 0f, 1.5f);
-                            MerchantAgent[] allAllies = FindObjectsOfType<MerchantAgent>();
-                            foreach (var ally in allAllies) { ally.AddReward(groupReward); }
+                            if (cachedAllies != null)
+                            {
+                                foreach (var ally in cachedAllies) { ally.AddReward(groupReward); }
+                            }
                         }
                         else
                         {
-                            // Birinin hatası tüm takımı yakar! (Takım baskısı)
                             float groupPenalty = Mathf.Clamp(profit * REWARD_FACTOR, -1.5f, 0f);
-                            MerchantAgent[] allAllies = FindObjectsOfType<MerchantAgent>();
-                            foreach (var ally in allAllies) { ally.AddReward(groupPenalty); }
+                            if (cachedAllies != null)
+                            {
+                                foreach (var ally in cachedAllies) { ally.AddReward(groupPenalty); }
+                            }
                         }
                         break;
 
@@ -872,12 +960,18 @@ public class MerchantAgent : Agent
         // EĞER TURNUVADA DEĞİLSEK (Sadece eğitimdeysek) hedefi kontrol et!
         if (!isTurnuva)
         {
-            float moneyGoal = 2000f + currentLesson * 1000f;
+            float moneyGoal = 2000f + currentLesson * 1000f; // Normalde 9000G
+
+            // ---> İZOLE EĞİTİM: ELÇİ MODUNDA HEDEF PARAYI UÇUR! <---
+            if (SessionData.CurrentMode == SessionData.GameMode.SarayinElcisi)
+            {
+                moneyGoal = 999999f; // Ajanın tek seferde resetlenmemesi için hedefi ulaşılmaz yapıyoruz.
+            }
+
             if (currentMoney >= moneyGoal)
             {
                 if (enableDebugLogs) Debug.Log($"<color=yellow>[HEDEF]</color> {currentMoney:F0}G = {moneyGoal:F0}G | Ders:{currentLesson}");
                 AddReward(2f);
-                // Eski hali: EndEpisode();
                 SafeEndEpisode("Hedef Paraya Ulaşıldı (Dersi Geçti)");
             }
         }
@@ -1291,6 +1385,63 @@ public class MerchantAgent : Agent
 
         // Asıl resetleme komutunu çalıştır
         base.EndEpisode();
+    }
+
+    // =========================================================
+    // HAYDUT SOYGUNU (ROBBERY) SİSTEMİ
+    // =========================================================
+    public void HandleRobbery()
+    {
+        if (IsImmuneToRobbery()) return;
+
+        robberyImmunityTimer = robberyImmunityDuration;
+        // 1. YAPAY ZEKAYA AĞIR CEZA
+        AddReward(-5.0f);
+
+        // 2. MALLARI SIFIRLA (Kervan yağmalandı)
+        carriedAmount = 0;
+        carriedItemData = null;
+        lastCargoCost = 0f;
+        averageBuyPrice = 0f;
+
+        // 3. PARANIN BÜYÜK KISMINI KAYBET (%10 ile %15 arası kalsın)
+        float kalanYuzde = UnityEngine.Random.Range(0.10f, 0.15f);
+        currentMoney = Mathf.FloorToInt(currentMoney * kalanYuzde);
+
+        // 4. EN YAKIN ŞEHRİ / KÖYÜ BUL
+        if (allSettlements != null && allSettlements.Count > 0)
+        {
+            CityController nearestCity = null;
+            float minDistance = float.MaxValue;
+
+            foreach (var city in allSettlements)
+            {
+                float dist = Vector3.Distance(transform.position, city.transform.position);
+                if (dist < minDistance)
+                {
+                    minDistance = dist;
+                    nearestCity = city;
+                }
+            }
+
+            // 5. AJANI EN YAKIN ŞEHRE IŞINLA
+            if (nearestCity != null)
+            {
+                UnityEngine.AI.NavMeshAgent nav = GetComponent<UnityEngine.AI.NavMeshAgent>();
+                if (nav != null)
+                {
+                    nav.Warp(nearestCity.transform.position); // Güvenli ışınlanma
+                    nav.ResetPath(); // Eski hedefini unut
+                }
+
+                currentDestination = null; // Beynindeki hedefi sıfırla
+
+                if (enableDebugLogs)
+                {
+                    Debug.Log($"<color=red>☠️ HAYDUT SOYGUNU!</color> {gameObject.name} tüm mallarını kaybetti! Parası {currentMoney}G'ye düştü ve {nearestCity.cityName} şehrine sığındı!");
+                }
+            }
+        }
     }
 }
 

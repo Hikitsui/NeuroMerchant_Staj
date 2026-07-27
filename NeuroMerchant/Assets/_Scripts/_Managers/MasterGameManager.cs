@@ -114,6 +114,11 @@ public class MasterGameManager : MonoBehaviour
         SpawnAgents(SessionData.AgentCount);
 
         // ==========================================
+        // 2.5 ZİNCİR: HAYDUTLARI HARİTAYA SAL (YENİ EKLENEN KISIM)
+        // ==========================================
+        SpawnAllBandits();
+
+        // ==========================================
         // 3. ZİNCİR: TURNUVAYI BAŞLAT
         // ==========================================
         if (competitionManager != null)
@@ -233,7 +238,7 @@ public class MasterGameManager : MonoBehaviour
 
     private void SetupSelectedGameMode()
     {
-        // Eğitimi kapat, turnuvayı aç
+        SessionData.CurrentMode = SessionData.GameMode.SarayinElcisi;
 
         // 1. ÖNCE AJANLARI ÜRET (SPAWN)
         SpawnAgents(SessionData.AgentCount);
@@ -465,18 +470,18 @@ public class MasterGameManager : MonoBehaviour
 
         currentTrainingDay = 0;
 
-        // Modu bir sonrakine kaydır (Örn: 0 -> 1 -> 2 -> 3 -> 4 -> Başa Dön 0)
-        int nextModeIndex = (int)SessionData.CurrentMode + 1;
-        int totalModes = System.Enum.GetValues(typeof(SessionData.GameMode)).Length;
+        // =========================================================
+        // ESKİ KODU YORUMA ALIYORUZ (MOD DEĞİŞİMİNİ İPTAL ETTİK)
+        // int nextModeIndex = (int)SessionData.CurrentMode + 1;
+        // int totalModes = System.Enum.GetValues(typeof(SessionData.GameMode)).Length;
+        // if (nextModeIndex >= totalModes) { nextModeIndex = 0; }
+        // SessionData.CurrentMode = (SessionData.GameMode)nextModeIndex;
+        // =========================================================
 
-        if (nextModeIndex >= totalModes)
-        {
-            nextModeIndex = 0;
-        }
+        // SİSTEMİ TEK MODA HAPSET!
+        SessionData.CurrentMode = SessionData.GameMode.SarayinElcisi;
 
-        SessionData.CurrentMode = (SessionData.GameMode)nextModeIndex;
-
-        Debug.Log($"<color=magenta>🔄 [EĞİTİM] EVREN SIFIRLANDI! Yeni Kural Seti: {SessionData.CurrentMode}</color>");
+        Debug.Log($"<color=magenta>🔄 [İZOLASYON EĞİTİMİ] EVREN SIFIRLANDI! Mod Sabitlendi: {SessionData.CurrentMode}</color>");
 
         ApplyModeSettings();
         ResetEnvironmentForTraining();
@@ -516,7 +521,8 @@ public class MasterGameManager : MonoBehaviour
         {
             agent.gameObject.SetActive(true);
 
-            agent.currentMoney = 200f;
+            // ---> İZOLE EĞİTİM: SERMAYE 200G'DEN 2000G'YE ÇIKARILDI <---
+            agent.currentMoney = 2000f;
             agent.contractPoints = 0;
 
             if (agent.soldItemsTracker != null)
@@ -524,5 +530,25 @@ public class MasterGameManager : MonoBehaviour
 
             agent.EndEpisode();
         }
+    }
+
+    private void SpawnAllBandits()
+    {
+        // Haritadaki tüm açık yeşil alanları (BanditZone) bul
+        BanditZone[] allZones = FindObjectsOfType<BanditZone>();
+
+        if (allZones.Length == 0)
+        {
+            Debug.LogWarning("<color=yellow>[MasterGM] Haritada hiç BanditZone bulunamadı!</color>");
+            return;
+        }
+
+        // Hepsine haydutları fırlatması için emir ver
+        foreach (BanditZone zone in allZones)
+        {
+            zone.SpawnBanditsInZone();
+        }
+
+        Debug.Log($"<color=red>[MasterGM] Toplam {allZones.Length} bölgede haydutlar haritaya salındı!</color>");
     }
 }

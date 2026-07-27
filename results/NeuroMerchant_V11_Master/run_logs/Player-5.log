@@ -1,27 +1,26 @@
-Mono path[0] = 'C:/Game Developing/Game - Unity/NeuroMerchant_Staj/NeuroMerchant/Builds/NeuroMerchant_Train_Data/Managed'
+Mono path[0] = 'C:/Game Developing/Game - Unity/NeuroMerchant_Staj/NeuroMerchant/Builds/NeuroMerchant_Data/Managed'
 Mono config path = 'C:/Game Developing/Game - Unity/NeuroMerchant_Staj/NeuroMerchant/Builds/MonoBleedingEdge/etc'
 [Physics::Module] Initialized MultithreadedJobDispatcher with 15 workers.
 Initialize engine version: 2022.3.20f1 (61c2feb0970d)
-[Subsystems] Discovering subsystems at path C:/Game Developing/Game - Unity/NeuroMerchant_Staj/NeuroMerchant/Builds/NeuroMerchant_Train_Data/UnitySubsystems
+[Subsystems] Discovering subsystems at path C:/Game Developing/Game - Unity/NeuroMerchant_Staj/NeuroMerchant/Builds/NeuroMerchant_Data/UnitySubsystems
 GfxDevice: creating device client; threaded=1; jobified=1
 Direct3D:
     Version:  Direct3D 11.0 [level 11.1]
     Renderer: NVIDIA GeForce RTX 3060 Laptop GPU (ID=0x2520)
     Vendor:   NVIDIA
     VRAM:     5994 MB
-    Driver:   32.0.15.9636
+    Driver:   32.0.16.1062
 Begin MonoManager ReloadAssembly
-- Loaded All Assemblies, in  2.390 seconds
-- Finished resetting the current domain, in  0.002 seconds
+- Loaded All Assemblies, in  0.273 seconds
+- Finished resetting the current domain, in  0.003 seconds
 <RI> Initializing input.
 <RI> Input initialized.
 <RI> Initialized touch support.
-UnloadTime: 1.462200 ms
+UnloadTime: 0.786500 ms
 <color=cyan>[Competition] Instance oluşturuldu.</color>
 DontDestroyOnLoad only works for root GameObjects or components on root GameObjects.
 [MasterGM] Tüm manager'lar tarandı.
 <color=red>[MasterGM] Şehirler bulunamadı! Ajanlar doğamıyor.</color>
-Oyun Modu: Altın Yolu başlatıldı.
 [MasterGM] WorldGenerator → TrainingMode: True
 [MasterGM] ContractManager → TrainingMode: True
 [MasterGM] EventManager → TrainingMode: True
@@ -33,37 +32,917 @@ Oyun Modu: Altın Yolu başlatıldı.
 <color=cyan>║  MASTER GAME MANAGER BAŞLATILDI       ║</color>
 <color=cyan>║  Mod: EĞİTİM                       ║</color>
 <color=cyan>╚════════════════════════════════════════╝</color>
-IOException: Sharing violation on path C:\Game Developing\Game - Unity\NeuroMerchant_Staj\NeuroMerchant\Builds\curriculum_NeuroMerchant_V12.txt
-  at System.IO.FileStream..ctor (System.String path, System.IO.FileMode mode, System.IO.FileAccess access, System.IO.FileShare share, System.Int32 bufferSize, System.Boolean anonymous, System.IO.FileOptions options) [0x0019e] in <dc753a1061284f8e971ee88ee4826eee>:0 
-  at System.IO.FileStream..ctor (System.String path, System.IO.FileMode mode, System.IO.FileAccess access, System.IO.FileShare share, System.Int32 bufferSize, System.IO.FileOptions options) [0x00000] in <dc753a1061284f8e971ee88ee4826eee>:0 
-  at (wrapper remoting-invoke-with-check) System.IO.FileStream..ctor(string,System.IO.FileMode,System.IO.FileAccess,System.IO.FileShare,int,System.IO.FileOptions)
-  at System.IO.StreamWriter..ctor (System.String path, System.Boolean append, System.Text.Encoding encoding, System.Int32 bufferSize) [0x00055] in <dc753a1061284f8e971ee88ee4826eee>:0 
-  at System.IO.StreamWriter..ctor (System.String path) [0x00008] in <dc753a1061284f8e971ee88ee4826eee>:0 
-  at (wrapper remoting-invoke-with-check) System.IO.StreamWriter..ctor(string)
-  at System.IO.File.WriteAllText (System.String path, System.String contents) [0x00026] in <dc753a1061284f8e971ee88ee4826eee>:0 
-  at CurriculumManager.SaveLesson () [0x0001a] in <8b6d58ff4ed948309bfaaf6184aa3bbc>:0 
-  at CurriculumManager.LoadLesson () [0x00080] in <8b6d58ff4ed948309bfaaf6184aa3bbc>:0 
-  at CurriculumManager.Start () [0x0001a] in <8b6d58ff4ed948309bfaaf6184aa3bbc>:0 
-
+<color=cyan>[Curriculum] Ders yüklendi: 1</color>
+[Curriculum] 0 ajana Ders 1 uygulandı ve resetlendi.
 <color=cyan>WORLD GENERATOR:</color> Initializing TRAINING (Tiny World) with STATIC POPULATION (Growth OFF)...
 <color=green>WORLD GEN COMPLETE:</color> Cities: 20. Pop Dynamics: False
 <color=orange>[EventManager] Başlatıldı. Mod: Eğitim</color>
 <color=yellow>[ContractManager] Başlatıldı. Mod: Eğitim</color>
 <color=cyan>[MasterGM] Toplam 20 kervan haritaya yerleştirildi. (Lonca Modu: False)</color>
+<color=yellow>[MasterGM] Haritada hiç BanditZone bulunamadı!</color>
 <color=cyan>╔══════════════════════════════════════════════════╗</color>
-<color=cyan>║ MOD: AltinYolu | TİP: AIVsAI </color>
+<color=cyan>║ MOD: SarayinElcisi | TİP: AIVsAI </color>
 <color=cyan>║ Toplam Kervan: 20 | Hedef Süre: 1800 Gün </color>
 <color=cyan>╚══════════════════════════════════════════════════╝</color>
 Day 2 / Month 1
 Day 3 / Month 1
 Day 4 / Month 1
-Unable to save timers to file C:/Game Developing/Game - Unity/NeuroMerchant_Staj/NeuroMerchant/Builds/NeuroMerchant_Train_Data\ML-Agents\Timers\Scene_03_HardTraining_timers.json
+Day 5 / Month 1
+Day 6 / Month 1
+Day 7 / Month 1
+Day 8 / Month 1
+Day 9 / Month 1
+Day 10 / Month 1
+Day 11 / Month 1
+Day 12 / Month 1
+Day 13 / Month 1
+Day 14 / Month 1
+Day 15 / Month 1
+Day 16 / Month 1
+Day 17 / Month 1
+Day 18 / Month 1
+Day 19 / Month 1
+Day 20 / Month 1
+Day 21 / Month 1
+Day 22 / Month 1
+Day 23 / Month 1
+Day 24 / Month 1
+Day 25 / Month 1
+Day 26 / Month 1
+Day 27 / Month 1
+Day 28 / Month 1
+Day 29 / Month 1
+Day 30 / Month 1
+<color=magenta>--- NEW MONTH! (Month 2, Year 1) ---</color>
+Day 1 / Month 2
+Day 2 / Month 2
+Day 3 / Month 2
+Day 4 / Month 2
+Day 5 / Month 2
+Day 6 / Month 2
+Day 7 / Month 2
+Day 8 / Month 2
+Day 9 / Month 2
+Day 10 / Month 2
+Day 11 / Month 2
+Day 12 / Month 2
+Day 13 / Month 2
+Day 14 / Month 2
+Day 15 / Month 2
+Day 16 / Month 2
+Day 17 / Month 2
+Day 18 / Month 2
+Day 19 / Month 2
+Day 20 / Month 2
+Day 21 / Month 2
+Day 22 / Month 2
+Day 23 / Month 2
+Day 24 / Month 2
+Day 25 / Month 2
+Day 26 / Month 2
+Day 27 / Month 2
+Day 28 / Month 2
+Day 29 / Month 2
+Day 30 / Month 2
+<color=magenta>--- NEW MONTH! (Month 3, Year 1) ---</color>
+Day 1 / Month 3
+Day 2 / Month 3
+Day 3 / Month 3
+Day 4 / Month 3
+Day 5 / Month 3
+Day 6 / Month 3
+Day 7 / Month 3
+Day 8 / Month 3
+Day 9 / Month 3
+Day 10 / Month 3
+Day 11 / Month 3
+Day 12 / Month 3
+Day 13 / Month 3
+Day 14 / Month 3
+Day 15 / Month 3
+Day 16 / Month 3
+Day 17 / Month 3
+Day 18 / Month 3
+Day 19 / Month 3
+Day 20 / Month 3
+Day 21 / Month 3
+Day 22 / Month 3
+Day 23 / Month 3
+Day 24 / Month 3
+Day 25 / Month 3
+Day 26 / Month 3
+Day 27 / Month 3
+Day 28 / Month 3
+Day 29 / Month 3
+Day 30 / Month 3
+<color=magenta>--- NEW MONTH! (Month 4, Year 1) ---</color>
+Day 1 / Month 4
+Day 2 / Month 4
+Day 3 / Month 4
+Day 4 / Month 4
+Day 5 / Month 4
+Day 6 / Month 4
+Day 7 / Month 4
+Day 8 / Month 4
+Day 9 / Month 4
+Day 10 / Month 4
+Day 11 / Month 4
+Day 12 / Month 4
+Day 13 / Month 4
+Day 14 / Month 4
+Day 15 / Month 4
+Day 16 / Month 4
+Day 17 / Month 4
+Day 18 / Month 4
+Day 19 / Month 4
+Day 20 / Month 4
+Day 21 / Month 4
+Day 22 / Month 4
+Day 23 / Month 4
+Day 24 / Month 4
+Day 25 / Month 4
+Day 26 / Month 4
+Day 27 / Month 4
+Day 28 / Month 4
+Day 29 / Month 4
+Day 30 / Month 4
+<color=magenta>--- NEW MONTH! (Month 5, Year 1) ---</color>
+Day 1 / Month 5
+Day 2 / Month 5
+Day 3 / Month 5
+Day 4 / Month 5
+Day 5 / Month 5
+Day 6 / Month 5
+Day 7 / Month 5
+Day 8 / Month 5
+Day 9 / Month 5
+Day 10 / Month 5
+Day 11 / Month 5
+Day 12 / Month 5
+Day 13 / Month 5
+Day 14 / Month 5
+Day 15 / Month 5
+Day 16 / Month 5
+Day 17 / Month 5
+Day 18 / Month 5
+Day 19 / Month 5
+Day 20 / Month 5
+Day 21 / Month 5
+Day 22 / Month 5
+Day 23 / Month 5
+Day 24 / Month 5
+Day 25 / Month 5
+Day 26 / Month 5
+Day 27 / Month 5
+Day 28 / Month 5
+Day 29 / Month 5
+Day 30 / Month 5
+<color=magenta>--- NEW MONTH! (Month 6, Year 1) ---</color>
+Day 1 / Month 6
+Day 2 / Month 6
+Day 3 / Month 6
+Day 4 / Month 6
+Day 5 / Month 6
+Day 6 / Month 6
+Day 7 / Month 6
+Day 8 / Month 6
+Day 9 / Month 6
+Day 10 / Month 6
+Day 11 / Month 6
+Day 12 / Month 6
+Day 13 / Month 6
+Day 14 / Month 6
+Day 15 / Month 6
+Day 16 / Month 6
+Day 17 / Month 6
+Day 18 / Month 6
+Day 19 / Month 6
+Day 20 / Month 6
+Day 21 / Month 6
+Day 22 / Month 6
+Day 23 / Month 6
+Day 24 / Month 6
+Day 25 / Month 6
+Day 26 / Month 6
+Day 27 / Month 6
+Day 28 / Month 6
+Day 29 / Month 6
+Day 30 / Month 6
+<color=magenta>--- NEW MONTH! (Month 7, Year 1) ---</color>
+Day 1 / Month 7
+Day 2 / Month 7
+Day 3 / Month 7
+Day 4 / Month 7
+Day 5 / Month 7
+Day 6 / Month 7
+Day 7 / Month 7
+Day 8 / Month 7
+Day 9 / Month 7
+Day 10 / Month 7
+Day 11 / Month 7
+Day 12 / Month 7
+Day 13 / Month 7
+Day 14 / Month 7
+Day 15 / Month 7
+Day 16 / Month 7
+Day 17 / Month 7
+Day 18 / Month 7
+Day 19 / Month 7
+Day 20 / Month 7
+Day 21 / Month 7
+Day 22 / Month 7
+Day 23 / Month 7
+Day 24 / Month 7
+Day 25 / Month 7
+Day 26 / Month 7
+Day 27 / Month 7
+Day 28 / Month 7
+Day 29 / Month 7
+Day 30 / Month 7
+<color=magenta>--- NEW MONTH! (Month 8, Year 1) ---</color>
+Day 1 / Month 8
+Day 2 / Month 8
+Day 3 / Month 8
+Day 4 / Month 8
+Day 5 / Month 8
+Day 6 / Month 8
+Day 7 / Month 8
+Day 8 / Month 8
+Day 9 / Month 8
+Day 10 / Month 8
+Day 11 / Month 8
+Day 12 / Month 8
+Day 13 / Month 8
+Day 14 / Month 8
+Day 15 / Month 8
+Day 16 / Month 8
+Day 17 / Month 8
+Day 18 / Month 8
+Day 19 / Month 8
+Day 20 / Month 8
+Day 21 / Month 8
+Day 22 / Month 8
+Day 23 / Month 8
+Day 24 / Month 8
+Day 25 / Month 8
+Day 26 / Month 8
+Day 27 / Month 8
+Day 28 / Month 8
+Day 29 / Month 8
+Day 30 / Month 8
+<color=magenta>--- NEW MONTH! (Month 9, Year 1) ---</color>
+Day 1 / Month 9
+Day 2 / Month 9
+Day 3 / Month 9
+Day 4 / Month 9
+Day 5 / Month 9
+Day 6 / Month 9
+Day 7 / Month 9
+Day 8 / Month 9
+Day 9 / Month 9
+Day 10 / Month 9
+Day 11 / Month 9
+Day 12 / Month 9
+Day 13 / Month 9
+Day 14 / Month 9
+Day 15 / Month 9
+Day 16 / Month 9
+Day 17 / Month 9
+Day 18 / Month 9
+Day 19 / Month 9
+Day 20 / Month 9
+Day 21 / Month 9
+Day 22 / Month 9
+Day 23 / Month 9
+Day 24 / Month 9
+Day 25 / Month 9
+Day 26 / Month 9
+Day 27 / Month 9
+Day 28 / Month 9
+Day 29 / Month 9
+Day 30 / Month 9
+<color=magenta>--- NEW MONTH! (Month 10, Year 1) ---</color>
+Day 1 / Month 10
+Day 2 / Month 10
+Day 3 / Month 10
+Day 4 / Month 10
+Day 5 / Month 10
+Day 6 / Month 10
+Day 7 / Month 10
+Day 8 / Month 10
+Day 9 / Month 10
+Day 10 / Month 10
+Day 11 / Month 10
+Day 12 / Month 10
+Day 13 / Month 10
+Day 14 / Month 10
+Day 15 / Month 10
+Day 16 / Month 10
+Day 17 / Month 10
+Day 18 / Month 10
+Day 19 / Month 10
+Day 20 / Month 10
+Day 21 / Month 10
+Day 22 / Month 10
+Day 23 / Month 10
+Day 24 / Month 10
+Day 25 / Month 10
+Day 26 / Month 10
+Day 27 / Month 10
+Day 28 / Month 10
+Day 29 / Month 10
+Day 30 / Month 10
+<color=magenta>--- NEW MONTH! (Month 11, Year 1) ---</color>
+Day 1 / Month 11
+Day 2 / Month 11
+Day 3 / Month 11
+Day 4 / Month 11
+Day 5 / Month 11
+Day 6 / Month 11
+Day 7 / Month 11
+Day 8 / Month 11
+Day 9 / Month 11
+Day 10 / Month 11
+Day 11 / Month 11
+Day 12 / Month 11
+Day 13 / Month 11
+Day 14 / Month 11
+Day 15 / Month 11
+Day 16 / Month 11
+Day 17 / Month 11
+Day 18 / Month 11
+Day 19 / Month 11
+Day 20 / Month 11
+Day 21 / Month 11
+Day 22 / Month 11
+Day 23 / Month 11
+Day 24 / Month 11
+Day 25 / Month 11
+Day 26 / Month 11
+Day 27 / Month 11
+Day 28 / Month 11
+Day 29 / Month 11
+Day 30 / Month 11
+<color=magenta>--- NEW MONTH! (Month 12, Year 1) ---</color>
+Day 1 / Month 12
+Day 2 / Month 12
+Day 3 / Month 12
+Day 4 / Month 12
+Day 5 / Month 12
+Day 6 / Month 12
+Day 7 / Month 12
+Day 8 / Month 12
+Day 9 / Month 12
+Day 10 / Month 12
+Day 11 / Month 12
+Day 12 / Month 12
+Day 13 / Month 12
+Day 14 / Month 12
+Day 15 / Month 12
+Day 16 / Month 12
+Day 17 / Month 12
+Day 18 / Month 12
+Day 19 / Month 12
+Day 20 / Month 12
+Day 21 / Month 12
+Day 22 / Month 12
+Day 23 / Month 12
+Day 24 / Month 12
+Day 25 / Month 12
+Day 26 / Month 12
+Day 27 / Month 12
+Day 28 / Month 12
+Day 29 / Month 12
+Day 30 / Month 12
+<color=magenta>--- NEW MONTH! (Month 1, Year 2) ---</color>
+Day 1 / Month 1
+Day 2 / Month 1
+Day 3 / Month 1
+Day 4 / Month 1
+Day 5 / Month 1
+Day 6 / Month 1
+Day 7 / Month 1
+Day 8 / Month 1
+Day 9 / Month 1
+Day 10 / Month 1
+Day 11 / Month 1
+Day 12 / Month 1
+Day 13 / Month 1
+Day 14 / Month 1
+Day 15 / Month 1
+Day 16 / Month 1
+Day 17 / Month 1
+Day 18 / Month 1
+Day 19 / Month 1
+Day 20 / Month 1
+Day 21 / Month 1
+Day 22 / Month 1
+Day 23 / Month 1
+Day 24 / Month 1
+Day 25 / Month 1
+Day 26 / Month 1
+Day 27 / Month 1
+Day 28 / Month 1
+Day 29 / Month 1
+Day 30 / Month 1
+<color=magenta>--- NEW MONTH! (Month 2, Year 2) ---</color>
+Day 1 / Month 2
+Day 2 / Month 2
+Day 3 / Month 2
+Day 4 / Month 2
+Day 5 / Month 2
+Day 6 / Month 2
+Day 7 / Month 2
+Day 8 / Month 2
+Day 9 / Month 2
+Day 10 / Month 2
+Day 11 / Month 2
+Day 12 / Month 2
+Day 13 / Month 2
+Day 14 / Month 2
+Day 15 / Month 2
+Day 16 / Month 2
+Day 17 / Month 2
+Day 18 / Month 2
+Day 19 / Month 2
+Day 20 / Month 2
+Day 21 / Month 2
+Day 22 / Month 2
+Day 23 / Month 2
+Day 24 / Month 2
+Day 25 / Month 2
+Day 26 / Month 2
+Day 27 / Month 2
+Day 28 / Month 2
+Day 29 / Month 2
+Day 30 / Month 2
+<color=magenta>--- NEW MONTH! (Month 3, Year 2) ---</color>
+Day 1 / Month 3
+Day 2 / Month 3
+Day 3 / Month 3
+Day 4 / Month 3
+Day 5 / Month 3
+Day 6 / Month 3
+Day 7 / Month 3
+Day 8 / Month 3
+Day 9 / Month 3
+Day 10 / Month 3
+Day 11 / Month 3
+Day 12 / Month 3
+Day 13 / Month 3
+Day 14 / Month 3
+Day 15 / Month 3
+Day 16 / Month 3
+Day 17 / Month 3
+Day 18 / Month 3
+Day 19 / Month 3
+Day 20 / Month 3
+Day 21 / Month 3
+Day 22 / Month 3
+Day 23 / Month 3
+Day 24 / Month 3
+Day 25 / Month 3
+Day 26 / Month 3
+Day 27 / Month 3
+Day 28 / Month 3
+Day 29 / Month 3
+Day 30 / Month 3
+<color=magenta>--- NEW MONTH! (Month 4, Year 2) ---</color>
+Day 1 / Month 4
+Day 2 / Month 4
+Day 3 / Month 4
+Day 4 / Month 4
+Day 5 / Month 4
+Day 6 / Month 4
+Day 7 / Month 4
+Day 8 / Month 4
+Day 9 / Month 4
+Day 10 / Month 4
+Day 11 / Month 4
+Day 12 / Month 4
+Day 13 / Month 4
+Day 14 / Month 4
+Day 15 / Month 4
+Day 16 / Month 4
+Day 17 / Month 4
+Day 18 / Month 4
+Day 19 / Month 4
+Day 20 / Month 4
+Day 21 / Month 4
+Day 22 / Month 4
+Day 23 / Month 4
+Day 24 / Month 4
+Day 25 / Month 4
+Day 26 / Month 4
+Day 27 / Month 4
+Day 28 / Month 4
+Day 29 / Month 4
+Day 30 / Month 4
+<color=magenta>--- NEW MONTH! (Month 5, Year 2) ---</color>
+Day 1 / Month 5
+Day 2 / Month 5
+Day 3 / Month 5
+Day 4 / Month 5
+Day 5 / Month 5
+Day 6 / Month 5
+Day 7 / Month 5
+Day 8 / Month 5
+Day 9 / Month 5
+Day 10 / Month 5
+Day 11 / Month 5
+Day 12 / Month 5
+Day 13 / Month 5
+Day 14 / Month 5
+Day 15 / Month 5
+Day 16 / Month 5
+Day 17 / Month 5
+Day 18 / Month 5
+Day 19 / Month 5
+Day 20 / Month 5
+Day 21 / Month 5
+Day 22 / Month 5
+Day 23 / Month 5
+Day 24 / Month 5
+Day 25 / Month 5
+Day 26 / Month 5
+Day 27 / Month 5
+Day 28 / Month 5
+Day 29 / Month 5
+Day 30 / Month 5
+<color=magenta>--- NEW MONTH! (Month 6, Year 2) ---</color>
+Day 1 / Month 6
+Day 2 / Month 6
+Day 3 / Month 6
+Day 4 / Month 6
+Day 5 / Month 6
+Day 6 / Month 6
+Day 7 / Month 6
+Day 8 / Month 6
+Day 9 / Month 6
+Day 10 / Month 6
+Day 11 / Month 6
+Day 12 / Month 6
+Day 13 / Month 6
+Day 14 / Month 6
+Day 15 / Month 6
+Day 16 / Month 6
+Day 17 / Month 6
+Day 18 / Month 6
+Day 19 / Month 6
+Day 20 / Month 6
+Day 21 / Month 6
+Day 22 / Month 6
+Day 23 / Month 6
+Day 24 / Month 6
+Day 25 / Month 6
+Day 26 / Month 6
+Day 27 / Month 6
+Day 28 / Month 6
+Day 29 / Month 6
+Day 30 / Month 6
+<color=magenta>--- NEW MONTH! (Month 7, Year 2) ---</color>
+Day 1 / Month 7
+Day 2 / Month 7
+Day 3 / Month 7
+Day 4 / Month 7
+Day 5 / Month 7
+Day 6 / Month 7
+Day 7 / Month 7
+Day 8 / Month 7
+Day 9 / Month 7
+Day 10 / Month 7
+Day 11 / Month 7
+Day 12 / Month 7
+Day 13 / Month 7
+Day 14 / Month 7
+Day 15 / Month 7
+Day 16 / Month 7
+Day 17 / Month 7
+Day 18 / Month 7
+Day 19 / Month 7
+Day 20 / Month 7
+Day 21 / Month 7
+Day 22 / Month 7
+Day 23 / Month 7
+Day 24 / Month 7
+Day 25 / Month 7
+Day 26 / Month 7
+Day 27 / Month 7
+Day 28 / Month 7
+Day 29 / Month 7
+Day 30 / Month 7
+<color=magenta>--- NEW MONTH! (Month 8, Year 2) ---</color>
+Day 1 / Month 8
+Day 2 / Month 8
+Day 3 / Month 8
+Day 4 / Month 8
+Day 5 / Month 8
+Day 6 / Month 8
+Day 7 / Month 8
+Day 8 / Month 8
+Day 9 / Month 8
+Day 10 / Month 8
+Day 11 / Month 8
+Day 12 / Month 8
+Day 13 / Month 8
+Day 14 / Month 8
+Day 15 / Month 8
+Day 16 / Month 8
+Day 17 / Month 8
+Day 18 / Month 8
+Day 19 / Month 8
+Day 20 / Month 8
+Day 21 / Month 8
+Day 22 / Month 8
+Day 23 / Month 8
+Day 24 / Month 8
+Day 25 / Month 8
+Day 26 / Month 8
+Day 27 / Month 8
+Day 28 / Month 8
+Day 29 / Month 8
+Day 30 / Month 8
+<color=magenta>--- NEW MONTH! (Month 9, Year 2) ---</color>
+Day 1 / Month 9
+Day 2 / Month 9
+Day 3 / Month 9
+Day 4 / Month 9
+Day 5 / Month 9
+Day 6 / Month 9
+Day 7 / Month 9
+Day 8 / Month 9
+Day 9 / Month 9
+Day 10 / Month 9
+Day 11 / Month 9
+Day 12 / Month 9
+Day 13 / Month 9
+Day 14 / Month 9
+<color=red>💀 İFLAS: Kervan_16 iflas etti ve elendi! (Gün: 613)</color>
+Day 15 / Month 9
+Day 16 / Month 9
+Day 17 / Month 9
+Day 18 / Month 9
+Day 19 / Month 9
+Day 20 / Month 9
+Day 21 / Month 9
+Day 22 / Month 9
+Day 23 / Month 9
+Day 24 / Month 9
+Day 25 / Month 9
+Day 26 / Month 9
+Day 27 / Month 9
+Day 28 / Month 9
+Day 29 / Month 9
+Day 30 / Month 9
+<color=magenta>--- NEW MONTH! (Month 10, Year 2) ---</color>
+Day 1 / Month 10
+Day 2 / Month 10
+Day 3 / Month 10
+Day 4 / Month 10
+Day 5 / Month 10
+Day 6 / Month 10
+Day 7 / Month 10
+Day 8 / Month 10
+Day 9 / Month 10
+Day 10 / Month 10
+Day 11 / Month 10
+Day 12 / Month 10
+Day 13 / Month 10
+Day 14 / Month 10
+Day 15 / Month 10
+Day 16 / Month 10
+Day 17 / Month 10
+Day 18 / Month 10
+Day 19 / Month 10
+Day 20 / Month 10
+Day 21 / Month 10
+Day 22 / Month 10
+Day 23 / Month 10
+Day 24 / Month 10
+Day 25 / Month 10
+Day 26 / Month 10
+Day 27 / Month 10
+Day 28 / Month 10
+Day 29 / Month 10
+Day 30 / Month 10
+<color=magenta>--- NEW MONTH! (Month 11, Year 2) ---</color>
+Day 1 / Month 11
+Day 2 / Month 11
+Day 3 / Month 11
+Day 4 / Month 11
+Day 5 / Month 11
+Day 6 / Month 11
+Day 7 / Month 11
+Day 8 / Month 11
+Day 9 / Month 11
+Day 10 / Month 11
+Day 11 / Month 11
+Day 12 / Month 11
+Day 13 / Month 11
+Day 14 / Month 11
+Day 15 / Month 11
+Day 16 / Month 11
+Day 17 / Month 11
+Day 18 / Month 11
+Day 19 / Month 11
+Day 20 / Month 11
+Day 21 / Month 11
+Day 22 / Month 11
+Day 23 / Month 11
+Day 24 / Month 11
+Day 25 / Month 11
+Day 26 / Month 11
+Day 27 / Month 11
+Day 28 / Month 11
+Day 29 / Month 11
+Day 30 / Month 11
+<color=magenta>--- NEW MONTH! (Month 12, Year 2) ---</color>
+Day 1 / Month 12
+Day 2 / Month 12
+Day 3 / Month 12
+Day 4 / Month 12
+Day 5 / Month 12
+Day 6 / Month 12
+Day 7 / Month 12
+Day 8 / Month 12
+Day 9 / Month 12
+Day 10 / Month 12
+Day 11 / Month 12
+Day 12 / Month 12
+Day 13 / Month 12
+Day 14 / Month 12
+Day 15 / Month 12
+Day 16 / Month 12
+Day 17 / Month 12
+Day 18 / Month 12
+Day 19 / Month 12
+Day 20 / Month 12
+Day 21 / Month 12
+Day 22 / Month 12
+Day 23 / Month 12
+Day 24 / Month 12
+Day 25 / Month 12
+Day 26 / Month 12
+Day 27 / Month 12
+Day 28 / Month 12
+Day 29 / Month 12
+Day 30 / Month 12
+<color=magenta>--- NEW MONTH! (Month 1, Year 3) ---</color>
+Day 1 / Month 1
+Day 2 / Month 1
+Day 3 / Month 1
+Day 4 / Month 1
+Day 5 / Month 1
+Day 6 / Month 1
+Day 7 / Month 1
+Day 8 / Month 1
+Day 9 / Month 1
+Day 10 / Month 1
+Day 11 / Month 1
+Day 12 / Month 1
+Day 13 / Month 1
+Day 14 / Month 1
+Day 15 / Month 1
+Day 16 / Month 1
+Day 17 / Month 1
+Day 18 / Month 1
+Day 19 / Month 1
+Day 20 / Month 1
+Day 21 / Month 1
+Day 22 / Month 1
+Day 23 / Month 1
+Day 24 / Month 1
+Day 25 / Month 1
+Day 26 / Month 1
+Day 27 / Month 1
+Day 28 / Month 1
+Day 29 / Month 1
+Day 30 / Month 1
+<color=magenta>--- NEW MONTH! (Month 2, Year 3) ---</color>
+Day 1 / Month 2
+Day 2 / Month 2
+Day 3 / Month 2
+Day 4 / Month 2
+Day 5 / Month 2
+Day 6 / Month 2
+Day 7 / Month 2
+Day 8 / Month 2
+Day 9 / Month 2
+Day 10 / Month 2
+Day 11 / Month 2
+Day 12 / Month 2
+Day 13 / Month 2
+Day 14 / Month 2
+Day 15 / Month 2
+Day 16 / Month 2
+Day 17 / Month 2
+Day 18 / Month 2
+Day 19 / Month 2
+Day 20 / Month 2
+Day 21 / Month 2
+Day 22 / Month 2
+Day 23 / Month 2
+Day 24 / Month 2
+Day 25 / Month 2
+Day 26 / Month 2
+Day 27 / Month 2
+Day 28 / Month 2
+Day 29 / Month 2
+Day 30 / Month 2
+<color=magenta>--- NEW MONTH! (Month 3, Year 3) ---</color>
+Day 1 / Month 3
+Day 2 / Month 3
+Day 3 / Month 3
+Day 4 / Month 3
+Day 5 / Month 3
+Day 6 / Month 3
+Day 7 / Month 3
+Day 8 / Month 3
+Day 9 / Month 3
+Day 10 / Month 3
+Day 11 / Month 3
+Day 12 / Month 3
+Day 13 / Month 3
+Day 14 / Month 3
+Day 15 / Month 3
+Day 16 / Month 3
+Day 17 / Month 3
+Day 18 / Month 3
+Day 19 / Month 3
+Day 20 / Month 3
+Day 21 / Month 3
+Day 22 / Month 3
+Day 23 / Month 3
+Day 24 / Month 3
+Day 25 / Month 3
+Day 26 / Month 3
+Day 27 / Month 3
+Day 28 / Month 3
+Day 29 / Month 3
+Day 30 / Month 3
+<color=magenta>--- NEW MONTH! (Month 4, Year 3) ---</color>
+Day 1 / Month 4
+Day 2 / Month 4
+Day 3 / Month 4
+Day 4 / Month 4
+Day 5 / Month 4
+Day 6 / Month 4
+Day 7 / Month 4
+Day 8 / Month 4
+Day 9 / Month 4
+Day 10 / Month 4
+Day 11 / Month 4
+Day 12 / Month 4
+Day 13 / Month 4
+Day 14 / Month 4
+Day 15 / Month 4
+Day 16 / Month 4
+Day 17 / Month 4
+Day 18 / Month 4
+Day 19 / Month 4
+Day 20 / Month 4
+Day 21 / Month 4
+Day 22 / Month 4
+Day 23 / Month 4
+Day 24 / Month 4
+Day 25 / Month 4
+Day 26 / Month 4
+Day 27 / Month 4
+Day 28 / Month 4
+Day 29 / Month 4
+Day 30 / Month 4
+<color=magenta>--- NEW MONTH! (Month 5, Year 3) ---</color>
+Day 1 / Month 5
+Day 2 / Month 5
+Day 3 / Month 5
+Day 4 / Month 5
+Day 5 / Month 5
+Day 6 / Month 5
+Day 7 / Month 5
+Day 8 / Month 5
+Day 9 / Month 5
+Day 10 / Month 5
+Day 11 / Month 5
+Day 12 / Month 5
+Day 13 / Month 5
+Day 14 / Month 5
+Day 15 / Month 5
+Day 16 / Month 5
+Day 17 / Month 5
+Day 18 / Month 5
+Day 19 / Month 5
+Day 20 / Month 5
+Day 21 / Month 5
+Day 22 / Month 5
+Day 23 / Month 5
+Day 24 / Month 5
+Unable to save timers to file C:/Game Developing/Game - Unity/NeuroMerchant_Staj/NeuroMerchant/Builds/NeuroMerchant_Data\ML-Agents\Timers\Scene_03_HardTraining_timers.json
 Setting up 8 worker threads for Enlighten.
 Memory Statistics:
 [ALLOC_TEMP_TLS] TLS Allocator
   StackAllocators : 
     [ALLOC_TEMP_MAIN]
-      Peak usage frame count: [1.0 KB-2.0 KB]: 112 frames, [2.0 KB-4.0 KB]: 19 frames, [4.0 KB-8.0 KB]: 1 frames, [16.0 KB-32.0 KB]: 1 frames, [2.0 MB-4.0 MB]: 1 frames
+      Peak usage frame count: [1.0 KB-2.0 KB]: 113 frames, [2.0 KB-4.0 KB]: 5180 frames, [4.0 KB-8.0 KB]: 1 frames, [16.0 KB-32.0 KB]: 1 frames, [2.0 MB-4.0 MB]: 1 frames
       Initial Block Size 4.0 MB
       Current Block Size 4.0 MB
       Peak Allocated Bytes 2.1 MB
@@ -76,7 +955,7 @@ Memory Statistics:
     [ALLOC_TEMP_Loading.PreloadManager]
       Initial Block Size 256.0 KB
       Current Block Size 256.0 KB
-      Peak Allocated Bytes 36.4 KB
+      Peak Allocated Bytes 46.4 KB
       Overflow Count 5
     [ALLOC_TEMP_Background Job.worker 3]
       Initial Block Size 32.0 KB
@@ -121,7 +1000,7 @@ Memory Statistics:
     [ALLOC_TEMP_Job.worker 0]
       Initial Block Size 256.0 KB
       Current Block Size 256.0 KB
-      Peak Allocated Bytes 3.1 KB
+      Peak Allocated Bytes 2.0 KB
       Overflow Count 0
     [ALLOC_TEMP_Job.worker 4]
       Initial Block Size 256.0 KB
@@ -136,7 +1015,7 @@ Memory Statistics:
     [ALLOC_TEMP_Job.worker 14]
       Initial Block Size 256.0 KB
       Current Block Size 256.0 KB
-      Peak Allocated Bytes 3.1 KB
+      Peak Allocated Bytes 2.0 KB
       Overflow Count 0
     [ALLOC_TEMP_Background Job.worker 10]
       Initial Block Size 32.0 KB
@@ -161,7 +1040,7 @@ Memory Statistics:
     [ALLOC_TEMP_Job.worker 1]
       Initial Block Size 256.0 KB
       Current Block Size 256.0 KB
-      Peak Allocated Bytes 9.7 KB
+      Peak Allocated Bytes 9.8 KB
       Overflow Count 0
     [ALLOC_TEMP_Job.worker 3]
       Initial Block Size 256.0 KB
@@ -186,7 +1065,7 @@ Memory Statistics:
     [ALLOC_TEMP_UnityGfxDeviceWorker]
       Initial Block Size 256.0 KB
       Current Block Size 256.0 KB
-      Peak Allocated Bytes 14.0 KB
+      Peak Allocated Bytes 14.2 KB
       Overflow Count 0
     [ALLOC_TEMP_AssetGarbageCollectorHelper] x 15
       Initial Block Size 64.0 KB
@@ -211,7 +1090,7 @@ Memory Statistics:
     [ALLOC_TEMP_Job.worker 10]
       Initial Block Size 256.0 KB
       Current Block Size 256.0 KB
-      Peak Allocated Bytes 3.1 KB
+      Peak Allocated Bytes 54 B
       Overflow Count 0
     [ALLOC_TEMP_Job.worker 7]
       Initial Block Size 256.0 KB
@@ -221,7 +1100,7 @@ Memory Statistics:
     [ALLOC_TEMP_Job.worker 9]
       Initial Block Size 256.0 KB
       Current Block Size 256.0 KB
-      Peak Allocated Bytes 3.1 KB
+      Peak Allocated Bytes 2.0 KB
       Overflow Count 0
     [ALLOC_TEMP_Background Job.worker 0]
       Initial Block Size 32.0 KB
@@ -246,7 +1125,7 @@ Memory Statistics:
     [ALLOC_TEMP_Loading.AsyncRead]
       Initial Block Size 64.0 KB
       Current Block Size 64.0 KB
-      Peak Allocated Bytes 384 B
+      Peak Allocated Bytes 366 B
       Overflow Count 0
     [ALLOC_TEMP_BatchDeleteObjects]
       Initial Block Size 64.0 KB
@@ -254,19 +1133,19 @@ Memory Statistics:
       Peak Allocated Bytes 54 B
       Overflow Count 0
 [ALLOC_DEFAULT] Dual Thread Allocator
-  Peak main deferred allocation count 194
+  Peak main deferred allocation count 212
     [ALLOC_BUCKET]
       Large Block size 4.0 MB
       Used Block count 1
       Peak Allocated bytes 1.2 MB
     [ALLOC_DEFAULT_MAIN]
-      Peak usage frame count: [16.0 MB-32.0 MB]: 134 frames
+      Peak usage frame count: [16.0 MB-32.0 MB]: 5296 frames
       Requested Block Size 16.0 MB
       Peak Block count 1
       Peak Allocated memory 22.8 MB
       Peak Large allocation bytes 8.0 MB
     [ALLOC_DEFAULT_THREAD]
-      Peak usage frame count: [16.0 MB-32.0 MB]: 134 frames
+      Peak usage frame count: [16.0 MB-32.0 MB]: 5296 frames
       Requested Block Size 16.0 MB
       Peak Block count 1
       Peak Allocated memory 21.6 MB
@@ -298,13 +1177,13 @@ Memory Statistics:
       Used Block count 1
       Peak Allocated bytes 1.2 MB
     [ALLOC_GFX_MAIN]
-      Peak usage frame count: [32.0 KB-64.0 KB]: 133 frames, [64.0 KB-128.0 KB]: 1 frames
+      Peak usage frame count: [32.0 KB-64.0 KB]: 5295 frames, [64.0 KB-128.0 KB]: 1 frames
       Requested Block Size 16.0 MB
       Peak Block count 1
       Peak Allocated memory 109.1 KB
       Peak Large allocation bytes 0 B
     [ALLOC_GFX_THREAD]
-      Peak usage frame count: [0.5 MB-1.0 MB]: 134 frames
+      Peak usage frame count: [0.5 MB-1.0 MB]: 5296 frames
       Requested Block Size 16.0 MB
       Peak Block count 1
       Peak Allocated memory 0.8 MB
@@ -316,16 +1195,16 @@ Memory Statistics:
       Used Block count 1
       Peak Allocated bytes 1.2 MB
     [ALLOC_CACHEOBJECTS_MAIN]
-      Peak usage frame count: [1.0 MB-2.0 MB]: 134 frames
+      Peak usage frame count: [1.0 MB-2.0 MB]: 5296 frames
       Requested Block Size 4.0 MB
       Peak Block count 1
       Peak Allocated memory 1.3 MB
       Peak Large allocation bytes 0 B
     [ALLOC_CACHEOBJECTS_THREAD]
-      Peak usage frame count: [1.0 MB-2.0 MB]: 134 frames
+      Peak usage frame count: [1.0 MB-2.0 MB]: 5296 frames
       Requested Block Size 4.0 MB
       Peak Block count 1
-      Peak Allocated memory 1.8 MB
+      Peak Allocated memory 1.9 MB
       Peak Large allocation bytes 0 B
 [ALLOC_TYPETREE] Dual Thread Allocator
   Peak main deferred allocation count 0
@@ -334,13 +1213,13 @@ Memory Statistics:
       Used Block count 1
       Peak Allocated bytes 1.2 MB
     [ALLOC_TYPETREE_MAIN]
-      Peak usage frame count: [4.0 KB-8.0 KB]: 134 frames
+      Peak usage frame count: [4.0 KB-8.0 KB]: 5296 frames
       Requested Block Size 2.0 MB
       Peak Block count 1
       Peak Allocated memory 4.1 KB
       Peak Large allocation bytes 0 B
     [ALLOC_TYPETREE_THREAD]
-      Peak usage frame count: [8.0 KB-16.0 KB]: 134 frames
+      Peak usage frame count: [8.0 KB-16.0 KB]: 5296 frames
       Requested Block Size 2.0 MB
       Peak Block count 1
       Peak Allocated memory 10.5 KB

@@ -179,8 +179,8 @@ MonoBehaviour:
   MaxStep: 0
   isTournamentMode: 1
   enableDebugLogs: 0
-  currentMoney: 200
-  startingMoney: 200
+  currentMoney: 2000
+  startingMoney: 2000
   contractPoints: 0
   completedContractsCount: 0
   movementPenalty: -0.00005
@@ -221,9 +221,9 @@ MonoBehaviour:
     VectorActionDescriptions: []
     VectorActionSpaceType: 0
     hasUpgradedBrainParametersWithActionSpec: 1
-  m_Model: {fileID: 5022602860645237092, guid: 4e76fc5e25515ef479c1015cebf9836e, type: 3}
+  m_Model: {fileID: 5022602860645237092, guid: 4de4f5737bacc5249b77d596f5c2c0cd, type: 3}
   m_InferenceDevice: 1
-  m_BehaviorType: 0
+  m_BehaviorType: 2
   m_BehaviorName: MerchantAgent
   TeamId: 0
   m_UseChildSensors: 1

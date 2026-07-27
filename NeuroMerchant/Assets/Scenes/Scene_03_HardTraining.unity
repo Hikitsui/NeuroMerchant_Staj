@@ -2227,7 +2227,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f62887a5f44793b4281ad91a1c66402e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  trainingDaysPerEpisode: 10
+  trainingDaysPerEpisode: 1800
   isTrainingMode: 1
   merchantAgentPrefab: {fileID: 3037404340018768435, guid: 911d2d476e6a90345adf53c6d07e1a3d, type: 3}
   agentsContainer: {fileID: 2500877570811833732}
